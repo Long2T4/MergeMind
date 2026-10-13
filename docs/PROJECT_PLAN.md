@@ -16,6 +16,15 @@ it does not describe what is built today. For that, see the main
 - **Stage 5 — Review Results UI**: Complete
 - **Stages 6–10**: Not started
 
+## Development Workflow & Records
+
+See [CLAUDE.md](../CLAUDE.md) for stage ownership and the development
+workflow. Supporting records for in-progress and completed work live in:
+
+- [docs/plans/](plans/README.md) — approved plans for work in flight
+- [docs/reviews/](reviews/README.md) — concise summaries of completed tasks
+- [docs/growth-log/](growth-log/README.md) — lessons learned, recurring problems
+
 ## Stage Roadmap (reference)
 
 1. Project Foundation — frontend/backend scaffolding, health check
