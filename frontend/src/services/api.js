@@ -33,3 +33,18 @@ export async function getCodeReviews() {
   }
   return response.json()
 }
+
+
+// Stage 6: history dashboard endpoints; uses the existing backend.
+export async function getReviewHistory({ q = '', language = '', status = '', limit = 8, offset = 0 } = {}) {
+  const params = new URLSearchParams({ q, language, status, limit: String(limit), offset: String(offset) })
+  const response = await fetch(`${API_BASE_URL}/review-history/?${params}`)
+  if (!response.ok) throw new Error(`History request failed (${response.status})`)
+  return response.json()
+}
+
+export async function getReviewHistoryStats() {
+  const response = await fetch(`${API_BASE_URL}/review-history/stats`)
+  if (!response.ok) throw new Error(`History stats failed (${response.status})`)
+  return response.json()
+}
