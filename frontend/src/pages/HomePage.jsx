@@ -3,6 +3,7 @@ import { getHealth, createCodeReview, getCodeReviews } from '../services/api'
 import CodeSubmitForm from '../components/CodeSubmitForm'
 import ReviewList from '../components/ReviewList'
 import ReviewDetail from '../components/ReviewDetail'
+import ReviewHistory from '../components/ReviewHistory'
 
 // No project management UI exists yet (that's a later stage), so every
 // submission is attached to this fixed project for now.
@@ -14,6 +15,7 @@ function HomePage() {
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState('')
   const [selectedReviewId, setSelectedReviewId] = useState(null)
+  const [showReviewHistory, setShowReviewHistory] = useState(false)
 
   useEffect(() => {
     getHealth()
@@ -55,6 +57,8 @@ function HomePage() {
 
       {selectedReview ? (
         <ReviewDetail review={selectedReview} onClose={() => setSelectedReviewId(null)} />
+      ) : showReviewHistory ? (
+        <ReviewHistory onBack={() => setShowReviewHistory(false)} onSelectReview={setSelectedReviewId} />
       ) : (
         <>
           <h2>Submit Code</h2>
@@ -62,6 +66,7 @@ function HomePage() {
           {error && <p className="error-message">{error}</p>}
 
           <h2>Submitted Reviews</h2>
+        <button type="button" className="history-open-button" onClick={() => setShowReviewHistory(true)}>View Review History →</button>
           <ReviewList reviews={reviews} onSelectReview={setSelectedReviewId} />
         </>
       )}

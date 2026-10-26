@@ -3,7 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.database.database import Base, engine
 from app.models import models  # noqa: F401 (import needed to register models with Base)
-from app.routes import health, users, projects, code_reviews
+from app.routes import health, users, projects, code_reviews, review_history
 
 # Create tables if they don't exist yet. This is fine for an early-stage
 # project where the schema is still simple and changing quickly. If the
@@ -25,3 +25,4 @@ app.include_router(health.router)
 app.include_router(users.router)
 app.include_router(projects.router)
 app.include_router(code_reviews.router)
+app.include_router(review_history.router)

@@ -1,0 +1,47 @@
+.history-dashboard { width: 100%; max-width: 980px; margin: 0 auto; padding-bottom: 32px; }
+.history-top { display: flex; justify-content: space-between; align-items: end; gap: 16px; margin: 0 0 18px; }
+.history-top h2 { font-size: 1.65rem; margin: 10px 0 5px; }
+.history-top p { opacity: .73; margin: 0; }
+.history-back { background: none; border: 0; padding: 6px 0; font: inherit; color: #818cf8; cursor: pointer; }
+.history-back:hover { text-decoration: underline; }
+.history-stats { display: grid; grid-template-columns: repeat(4,minmax(0,1fr)); gap: 12px; margin: 20px 0; }
+.history-stat { background: rgba(99,102,241,.09); border: 1px solid rgba(99,102,241,.18); border-radius: 12px; padding: 15px; display: flex; flex-direction: column; gap: 7px; }
+.history-stat span { font-size: .82rem; opacity: .74; }
+.history-stat strong { font-size: 1.65rem; font-weight: 750; }
+.history-filters { display: grid; grid-template-columns: 2fr 1fr 1fr; gap: 12px; margin-bottom: 24px; }
+.history-filters label { display: flex; flex-direction: column; font-size: .82rem; font-weight: 600; gap: 7px; }
+.history-filters input,.history-filters select { width: 100%; min-width: 0; box-sizing: border-box; border: 1px solid #475569; border-radius: 9px; padding: 11px; font: inherit; font-weight: 400; background: #111827; color: #f1f5f9; }
+.history-filters input:focus,.history-filters select:focus { outline: 2px solid #818cf8; outline-offset: 1px; }
+.history-list-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
+.history-list-header h3 { margin: 0; font-size: 1.05rem; }
+.history-list-header span { opacity: .6; font-size: .82rem; }
+.history-list { display: flex; flex-direction: column; gap: 9px; }
+.history-review { display: flex; align-items: center; justify-content: space-between; width: 100%; padding: 15px; background: rgba(31,41,55,.8); border: 1px solid rgba(148,163,184,.24); border-radius: 12px; color: inherit; font: inherit; text-align: left; cursor: pointer; gap: 12px; }
+.history-review:hover,.history-review:focus-visible { border-color: #818cf8; background: rgba(49,46,129,.27); }
+.history-review-main { display: flex; flex-direction: column; gap: 9px; min-width: 0; flex: 1; }
+.history-review-labels { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.history-id { font-weight: 750; }
+.history-language,.history-status { font-size: .74rem; padding: 3px 8px; border-radius: 999px; text-transform: capitalize; background: rgba(148,163,184,.17); }
+.history-language { background: rgba(129,140,248,.2); color: #c7d2fe; }
+.history-status-completed { color: #86efac; background: rgba(34,197,94,.15); }
+.history-status-failed { color: #fca5a5; background: rgba(239,68,68,.15); }
+.history-status-pending { color: #fcd34d; background: rgba(245,158,11,.15); }
+.history-code-snippet { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; opacity: .8; font-size: .8rem; }
+.history-review-main time { font-size: .78rem; opacity: .6; }
+.history-review-right { display: flex; flex-direction: column; gap: 2px; align-items: end; flex-shrink: 0; }
+.history-review-right strong { font-size: 1.35rem; }
+.history-review-right span,.history-review-right small { font-size: .75rem; opacity: .75; }
+.history-review-right small { color: #fca5a5; }
+.history-review-right .history-arrow { font-size: 1.1rem; opacity: 1; margin-top: 3px; }
+.history-message { border: 1px dashed rgba(148,163,184,.3); border-radius: 12px; padding: 22px; opacity: .8; }
+.history-error { color: #fca5a5; }
+.history-pagination { display: flex; align-items: center; justify-content: center; gap: 18px; margin-top: 18px; }
+.history-pagination button { background: #312e81; color: white; border: 1px solid #818cf8; border-radius: 8px; padding: 8px 13px; cursor: pointer; }
+.history-pagination button:disabled { opacity: .38; cursor: not-allowed; }
+.history-open-button { margin: 0 0 16px; background: #4f46e5; color: white; border: 1px solid #6366f1; border-radius: 9px; padding: 10px 15px; font-weight: 650; cursor: pointer; }
+.history-open-button:hover { background: #4338ca; }
+@media (max-width: 740px) {
+  .history-stats { grid-template-columns: repeat(2,minmax(0,1fr)); }
+  .history-filters { grid-template-columns: 1fr; }
+  .history-review { padding: 12px; }
+}
