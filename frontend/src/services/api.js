@@ -43,8 +43,21 @@ export async function getReviewHistory({ q = '', language = '', status = '', lim
   return response.json()
 }
 
-export async function getReviewHistoryStats() {
-  const response = await fetch(`${API_BASE_URL}/review-history/stats`)
+// Stats use the same filters as the list, so the totals match what is shown.
+export async function getReviewHistoryStats({ q = '', language = '', status = '' } = {}) {
+  const params = new URLSearchParams({ q, language, status })
+  const response = await fetch(`${API_BASE_URL}/review-history/stats?${params}`)
   if (!response.ok) throw new Error(`History stats failed (${response.status})`)
+  return response.json()
+}
+
+// Full review (code + issues) for the detail view.
+export async function getReviewHistoryDetail(reviewId) {
+  const response = await fetch(`${API_BASE_URL}/review-history/${encodeURIComponent(reviewId)}`)
+  if (!response.ok) {
+    const error = new Error(`Review request failed (${response.status})`)
+    error.status = response.status
+    throw error
+  }
   return response.json()
 }

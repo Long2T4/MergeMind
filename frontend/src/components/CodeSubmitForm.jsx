@@ -1,6 +1,5 @@
 import { useState } from 'react'
-
-const LANGUAGES = ['python', 'javascript', 'java', 'c', 'cpp', 'other']
+import { LANGUAGES } from '../constants/languages'
 
 function CodeSubmitForm({ onSubmit, isSubmitting }) {
   const [code, setCode] = useState('')

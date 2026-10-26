@@ -1,11 +1,11 @@
 import ReviewSummary from './ReviewSummary'
 import IssueCard from './IssueCard'
 
-function ReviewDetail({ review, onClose }) {
+function ReviewDetail({ review, onClose, backLabel = 'Back to reviews' }) {
   return (
     <div className="review-detail">
       <button type="button" className="review-detail-close" onClick={onClose}>
-        ← Back to reviews
+        ← {backLabel}
       </button>
 
       <ReviewSummary review={review} />

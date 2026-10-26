@@ -4,7 +4,8 @@
 .history-top p { opacity: .73; margin: 0; }
 .history-back { background: none; border: 0; padding: 6px 0; font: inherit; color: #818cf8; cursor: pointer; }
 .history-back:hover { text-decoration: underline; }
-.history-stats { display: grid; grid-template-columns: repeat(4,minmax(0,1fr)); gap: 12px; margin: 20px 0; }
+.history-stats-scope { margin: 20px 0 8px; font-size: .78rem; opacity: .6; }
+.history-stats { display: grid; grid-template-columns: repeat(4,minmax(0,1fr)); gap: 12px; margin: 0 0 20px; }
 .history-stat { background: rgba(99,102,241,.09); border: 1px solid rgba(99,102,241,.18); border-radius: 12px; padding: 15px; display: flex; flex-direction: column; gap: 7px; }
 .history-stat span { font-size: .82rem; opacity: .74; }
 .history-stat strong { font-size: 1.65rem; font-weight: 750; }
@@ -35,6 +36,9 @@
 .history-review-right .history-arrow { font-size: 1.1rem; opacity: 1; margin-top: 3px; }
 .history-message { border: 1px dashed rgba(148,163,184,.3); border-radius: 12px; padding: 22px; opacity: .8; }
 .history-error { color: #fca5a5; }
+.history-error p { margin: 0 0 12px; }
+.history-error p:last-child { margin-bottom: 0; }
+.history-retry { background: #312e81; color: white; border: 1px solid #818cf8; border-radius: 8px; padding: 8px 13px; cursor: pointer; }
 .history-pagination { display: flex; align-items: center; justify-content: center; gap: 18px; margin-top: 18px; }
 .history-pagination button { background: #312e81; color: white; border: 1px solid #818cf8; border-radius: 8px; padding: 8px 13px; cursor: pointer; }
 .history-pagination button:disabled { opacity: .38; cursor: not-allowed; }
