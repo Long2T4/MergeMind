@@ -14,7 +14,12 @@ it does not describe what is built today. For that, see the main
 - **Stage 4 — AI Review Service**: Complete (uses the category set defined
   in the Developer Learning requirement below)
 - **Stage 5 — Review Results UI**: Complete
-- **Stages 6–10**: Not started
+- **Stage 6 — Review History**: Implemented (merged in `308bbd5`); bug fixes
+  on `fix/stage-6-review-history` awaiting review. See
+  [Stage 6 — Review History (as built)](#stage-6--review-history-as-built) below.
+- **Stages 7–10**: Not started (see
+  [Open questions](#open-questions-for-team-confirmation) — the Stage 7
+  definition needs confirming)
 
 ## Development Workflow & Records
 
@@ -108,3 +113,61 @@ The manual single-file flow is a deliberate stepping stone, not the final
 product. Later stages should extend this path rather than replace it outright,
 since PR review will still need a place to display and store findings — the
 same `CodeReview`/`ReviewIssue` models built in Stage 2.
+
+## Stage 6 — Review History (as built)
+
+Read-only dashboard of past reviews over the existing `code_reviews` /
+`review_issues` tables (no schema changes).
+
+- **API** (`backend/app/routes/review_history.py`):
+  - `GET /review-history/` — paginated (`limit` ≤ 50, `offset`) newest-first
+    list of **summaries**: `code_preview` (first 160 chars), `issue_count`,
+    `high_severity_count`. Filters: `q` (search code/language, `%`/`_`
+    matched literally), `language`, `status`, `project_id`.
+  - `GET /review-history/stats` — totals for the reviews matching the
+    **same filters** as the list.
+  - `GET /review-history/{id}` — full review (code + issues) for the detail
+    view; 404 if missing.
+- **UI**: `ReviewHistory.jsx` (filters, debounced search, pagination, stats)
+  and `HistoryReviewDetail.jsx` (loads one review by id). Filters and page
+  are kept in `HomePage` so they survive opening a review. Language options
+  come from `frontend/src/constants/languages.js`, shared with the submit form.
+- **Tests**: `backend/tests/test_review_history.py` (in-memory SQLite, never
+  Supabase). Install `backend/requirements-dev.txt` to run them.
+- **Not in Stage 6**: issue feedback status updates (`fixed`, `dismissed`,
+  `false_positive`) stay in **Stage 9**. `ReviewIssue.status` is returned
+  but cannot be changed yet.
+
+### Known risk: no authentication or per-user isolation
+
+This applies to the whole app, not just Stage 6. Every endpoint is
+unauthenticated, and History can list, search and open (by sequential id)
+the submitted source code of every project. That's acceptable for local
+development only. Before deployment, or before Stage 7 brings in GitHub
+(possibly private) code, add authentication and scope history queries to
+the current user's projects. Two related notes:
+
+- `GET /review-history/{id}` makes walking review ids (1, 2, 3, …)
+  trivial, and `/stats?q=` lets a caller infer whether some code contains a
+  given string.
+- Search is a substring scan over `submitted_code`, which has no length
+  limit, so the cost grows with stored code size. When auth lands, consider
+  a submission size limit, a minimum search length, rate limiting, and an
+  upper bound on `offset`.
+
+## Open questions for team confirmation
+
+These are flagged, not decided. Nothing here has been changed in code.
+
+1. **What is Stage 7?** The Stage Roadmap above says Stage 7 is *GitHub
+   Integration*, while the Developer Learning section says Stage 7 is the
+   *Developer Learning Profile*. Confirm which one Stage 7 is (and where the
+   other one goes) before planning starts.
+2. **Stage 8 depends on that answer.** *Smarter Review Context* assumes
+   GitHub PR review exists. If GitHub Integration moves, Stage 8's order
+   needs to move with it.
+3. **History for PR reviews.** The History list is still built for the
+   single-snippet model (search over `submitted_code`, a fixed language
+   list). Stage 7/8 PR reviews will probably need repo/PR/file/author
+   filters and database indexes on `code_reviews.created_at`, `project_id`
+   and `review_issues.review_id`.
