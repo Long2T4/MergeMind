@@ -52,6 +52,9 @@ class ReviewIssueOut(BaseModel):
     explanation: str
     why_it_matters: str | None
     suggested_fix: str | None
+    confidence_score: int | None = None
+    confidence_level: str | None = None
+    confidence_evidence: dict | None = None
     status: str
     created_at: datetime
 

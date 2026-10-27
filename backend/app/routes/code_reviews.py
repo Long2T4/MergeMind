@@ -1,3 +1,4 @@
+
 import logging
 
 from fastapi import APIRouter, Depends
@@ -7,6 +8,9 @@ from app.database.database import get_db
 from app.models.models import CodeReview, ReviewIssue
 from app.models.schemas import CodeReviewCreate, CodeReviewOut
 from app.services.ai_review_service import review_code
+
+# Stage 7: Import confidence scoring function
+from app.services.confidence_service import calculate_confidence
 
 logger = logging.getLogger(__name__)
 
@@ -35,7 +39,18 @@ def create_code_review(review: CodeReviewCreate, db: Session = Depends(get_db)):
         return db_review
 
     for issue in issues:
-        db.add(ReviewIssue(review_id=db_review.id, **issue))
+        evidence = {"ai": True}
+        confidence = calculate_confidence(evidence)
+
+        db.add(
+            ReviewIssue(
+                review_id=db_review.id,
+                **issue,
+                confidence_score=confidence["confidence_score"],
+                confidence_level=confidence["confidence_level"],
+                confidence_evidence=evidence,
+            )
+        )
 
     db_review.review_status = "completed"
     db.commit()
