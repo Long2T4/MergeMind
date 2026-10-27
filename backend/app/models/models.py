@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from sqlalchemy import ForeignKey, Integer, String, Text, DateTime
+from sqlalchemy import ForeignKey, Integer, String, Text, DateTime, JSON
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database.database import Base
@@ -57,6 +57,16 @@ class ReviewIssue(Base):
     explanation: Mapped[str] = mapped_column(Text)
     why_it_matters: Mapped[str | None] = mapped_column(Text, nullable=True)
     suggested_fix: Mapped[str | None] = mapped_column(Text, nullable=True)
+    
+    #Stage 7: Confidence Score numeric evidence-based confidence score (0-100).
+    confidence_score: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    
+    #Classification of the confidence score: low, medium, or high.
+    confidence_level: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    
+    #Stores which evidence sources support the finding.
+    confidence_evidence: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    
     # Tracks the developer's response to this finding. Valid values (enforced
     # later, in Stage 9): "open", "fixed", "dismissed", "false_positive".
     status: Mapped[str] = mapped_column(String(30), default="open", nullable=False)

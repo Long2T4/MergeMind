@@ -560,3 +560,58 @@ button:focus-visible {
   padding: 0.15rem 0.5rem;
   border-radius: 4px;
 }
+
+
+/* Stage 7: Confidence Score */
+.issue-confidence {
+  padding: 0.85rem;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  background: var(--color-surface);
+}
+
+.confidence-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 0.65rem;
+}
+
+.confidence-value {
+  font-size: 1.1rem;
+  font-weight: 700;
+}
+
+.confidence-level {
+  font-size: 0.85rem;
+  font-weight: 600;
+  text-transform: capitalize;
+}
+
+.confidence-progress {
+  width: 100%;
+  height: 8px;
+  background: var(--color-border);
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.confidence-progress-fill {
+  height: 100%;
+  background: #d97706;
+  border-radius: 999px;
+  transition: width 0.3s ease;
+}
+
+.confidence-evidence {
+  margin-top: 0.75rem;
+  font-size: 0.85rem;
+}
+
+.confidence-note,
+.confidence-unavailable {
+  margin-top: 0.5rem;
+  font-size: 0.8rem;
+  opacity: 0.75;
+}
