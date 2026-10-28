@@ -14,12 +14,19 @@ it does not describe what is built today. For that, see the main
 - **Stage 4 — AI Review Service**: Complete (uses the category set defined
   in the Developer Learning requirement below)
 - **Stage 5 — Review Results UI**: Complete
-- **Stage 6 — Review History**: Implemented (merged in `308bbd5`); bug fixes
-  on `fix/stage-6-review-history` awaiting review. See
+- **Stage 6 — Review History**: Complete (feature `308bbd5`, fixes merged in
+  `015d078`). See
   [Stage 6 — Review History (as built)](#stage-6--review-history-as-built) below.
-- **Stages 7–10**: Not started (see
-  [Open questions](#open-questions-for-team-confirmation) — the Stage 7
-  definition needs confirming)
+- **Stage 7 — Confidence Scoring**: Complete (merged in `0c4bc34`). See
+  [Stage 7 — Confidence Scoring (as built)](#stage-7--confidence-scoring-as-built).
+- **Stage 8 — PR Risk Scoring**: Complete (merged in `9f9f162`). See
+  [Stage 8 — PR Risk Scoring (as built)](#stage-8--pr-risk-scoring-as-built).
+- **Stages 9–10**: Not started.
+- **Frontend redesign** (dark theme, routed pages): in progress on
+  `feature/ui-redesign`; not merged.
+
+> The Stage 7 and Stage 8 that shipped don't match either definition in the
+> roadmap below. See [Open questions](#open-questions-for-team-confirmation).
 
 ## Development Workflow & Records
 
@@ -122,16 +129,20 @@ Read-only dashboard of past reviews over the existing `code_reviews` /
 - **API** (`backend/app/routes/review_history.py`):
   - `GET /review-history/` — paginated (`limit` ≤ 50, `offset`) newest-first
     list of **summaries**: `code_preview` (first 160 chars), `issue_count`,
-    `high_severity_count`. Filters: `q` (search code/language, `%`/`_`
-    matched literally), `language`, `status`, `project_id`.
+    `high_severity_count`, `medium_severity_count`, `low_severity_count`
+    (the last two were added with the frontend redesign). Filters: `q`
+    (search code/language, `%`/`_` matched literally), `language`, `status`,
+    `project_id`.
   - `GET /review-history/stats` — totals for the reviews matching the
     **same filters** as the list.
   - `GET /review-history/{id}` — full review (code + issues) for the detail
     view; 404 if missing.
-- **UI**: `ReviewHistory.jsx` (filters, debounced search, pagination, stats)
-  and `HistoryReviewDetail.jsx` (loads one review by id). Filters and page
-  are kept in `HomePage` so they survive opening a review. Language options
-  come from `frontend/src/constants/languages.js`, shared with the submit form.
+- **UI**: `ReviewHistory.jsx` (filters, debounced search, pagination, stats,
+  issues-per-review chart). A saved review opens at `/reviews/:id`, which
+  loads it by id. Filters and page live in the URL
+  (`/history?q=&language=&status=&page=`), so they survive opening a review
+  and coming back. Language options come from
+  `frontend/src/constants/languages.js`, shared with the submit form.
 - **Tests**: `backend/tests/test_review_history.py` (in-memory SQLite, never
   Supabase). Install `backend/requirements-dev.txt` to run them.
 - **Not in Stage 6**: issue feedback status updates (`fixed`, `dismissed`,
@@ -155,19 +166,76 @@ the current user's projects. Two related notes:
   a submission size limit, a minimum search length, rate limiting, and an
   upper bound on `offset`.
 
+## Stage 7 — Confidence Scoring (as built)
+
+Each finding gets an evidence-based confidence score.
+
+- **Service**: `backend/app/services/confidence_service.py`.
+  `calculate_confidence(evidence)` adds a weight for each confirmed evidence
+  source: AI 20, Semgrep 25, Bandit 20, failed test 20, git history 10,
+  dependency 5. It returns `confidence_score` (0–100) and
+  `confidence_level` (high ≥ 80, medium ≥ 50, otherwise low).
+- **Data**: three nullable columns on `review_issues`: `confidence_score`,
+  `confidence_level`, `confidence_evidence` (JSON). They're returned on every
+  issue in `CodeReviewOut`.
+- **Current behaviour**: only AI evidence exists today (`{"ai": true}`), so
+  every new finding scores **20 / low**. Higher scores need the static
+  analysers or test results, which aren't integrated yet.
+- **UI**: a confidence pill on each collapsed finding, plus a meter, evidence
+  list and interpretation note when expanded. Older findings show "Not scored".
+- **Meaning**: the score measures supporting evidence. It is not the
+  probability that a finding is correct.
+
+## Stage 8 — PR Risk Scoring (as built)
+
+Each completed review gets a finding-based merge-risk score.
+
+- **Service**: `backend/app/services/risk_score_service.py`.
+  `calculate_risk(issues)` adds severity points per finding (high 30,
+  medium 15, low 5) into four groups (security, testing, maintainability,
+  performance; each capped at 100). It takes a weighted sum (0.35 / 0.25 /
+  0.25 / 0.15) and applies a floor from the highest severity (high 70,
+  medium 40, low 10). Level: high ≥ 70, medium ≥ 40, otherwise low.
+- **Data**: nullable `risk_score`, `risk_level` and `risk_breakdown` (JSON)
+  on `code_reviews`, returned in `CodeReviewOut`. Failed reviews and older
+  reviews have no score.
+- **UI**: a score ring in the review header and an "Overall Merge Risk" card
+  with the per-group breakdown.
+- **Meaning**: the score is a heuristic from the detected findings. It is not
+  the probability of a failed merge, and it doesn't use PR metadata or test
+  results yet.
+- **Despite the name**: there's no GitHub pull-request input yet. Scores come
+  from pasted-code reviews.
+
 ## Open questions for team confirmation
 
-These are flagged, not decided. Nothing here has been changed in code.
+These are flagged, not decided. Nothing here has been changed in code, and
+the agreed requirements above have been left as written.
 
-1. **What is Stage 7?** The Stage Roadmap above says Stage 7 is *GitHub
-   Integration*, while the Developer Learning section says Stage 7 is the
-   *Developer Learning Profile*. Confirm which one Stage 7 is (and where the
-   other one goes) before planning starts.
-2. **Stage 8 depends on that answer.** *Smarter Review Context* assumes
-   GitHub PR review exists. If GitHub Integration moves, Stage 8's order
-   needs to move with it.
-3. **History for PR reviews.** The History list is still built for the
-   single-snippet model (search over `submitted_code`, a fixed language
-   list). Stage 7/8 PR reviews will probably need repo/PR/file/author
-   filters and database indexes on `code_reviews.created_at`, `project_id`
-   and `review_issues.review_id`.
+1. **The roadmap doesn't match what shipped as Stages 7 and 8.**
+   - The Stage Roadmap lists Stage 7 as *GitHub Integration* and Stage 8 as
+     *Smarter Review Context*.
+   - The Developer Learning section lists Stage 7 as the *Developer Learning
+     Profile*.
+   - What merged as Stages 7 and 8 is *Confidence Scoring* and *PR Risk
+     Scoring*.
+   - The team should confirm the new numbering and where GitHub Integration,
+     Smarter Review Context and the Developer Learning Profile now sit.
+2. **Learning page vs the Developer Learning Profile.**
+   - The redesign's Learning page shows category counts, categories
+     repeated across reviews, activity and per-review category counts. It
+     computes them in the browser from saved reviews.
+   - It doesn't attribute findings to individual developers, track outcomes,
+     detect identical mistakes or measure improvement.
+   - So it is **not** the Developer Learning Profile requirement. Confirm
+     that this interim view is acceptable.
+3. **Feedback statuses** (`fixed`, `dismissed`, `false_positive`) remain
+   Stage 9. Fix rates and false-positive counts in the redesign mock-ups
+   depend on it and aren't shown.
+4. **History for PR reviews.**
+   - The History list is still built for the single-snippet model: search
+     over `submitted_code` and a fixed language list.
+   - Once GitHub PR reviews exist, History will probably need repo, PR, file
+     and author filters.
+   - It will also need database indexes on `code_reviews.created_at`,
+     `project_id` and `review_issues.review_id`.

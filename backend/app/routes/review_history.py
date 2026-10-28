@@ -28,6 +28,8 @@ class ReviewHistoryItem(BaseModel):
     code_preview: str
     issue_count: int
     high_severity_count: int
+    medium_severity_count: int
+    low_severity_count: int
 
 
 class ReviewHistoryPage(BaseModel):
@@ -65,8 +67,12 @@ def _review_filters(q: str, language: str, status: str, project_id: int | None) 
     return conditions
 
 
+def _severity_is(level: str):
+    return case((func.lower(ReviewIssue.severity) == level, 1), else_=0)
+
+
 def _is_high_severity():
-    return case((func.lower(ReviewIssue.severity) == "high", 1), else_=0)
+    return _severity_is("high")
 
 
 @router.get("/", response_model=ReviewHistoryPage)
@@ -102,9 +108,15 @@ def list_review_history(
     page_ids = [row.id for row in rows]
     if page_ids:
         counts = {
-            review_id: (issue_count, high_count or 0)
-            for review_id, issue_count, high_count in (
-                db.query(ReviewIssue.review_id, func.count(ReviewIssue.id), func.sum(_is_high_severity()))
+            review_id: (issue_count, high or 0, medium or 0, low or 0)
+            for review_id, issue_count, high, medium, low in (
+                db.query(
+                    ReviewIssue.review_id,
+                    func.count(ReviewIssue.id),
+                    func.sum(_severity_is("high")),
+                    func.sum(_severity_is("medium")),
+                    func.sum(_severity_is("low")),
+                )
                 .filter(ReviewIssue.review_id.in_(page_ids))
                 .group_by(ReviewIssue.review_id)
                 .all()
@@ -113,7 +125,7 @@ def list_review_history(
 
     items = []
     for row in rows:
-        issue_count, high_count = counts.get(row.id, (0, 0))
+        issue_count, high_count, medium_count, low_count = counts.get(row.id, (0, 0, 0, 0))
         items.append(ReviewHistoryItem(
             id=row.id,
             project_id=row.project_id,
@@ -123,6 +135,8 @@ def list_review_history(
             code_preview=row.code_preview or "",
             issue_count=issue_count,
             high_severity_count=high_count,
+            medium_severity_count=medium_count,
+            low_severity_count=low_count,
         ))
     return ReviewHistoryPage(items=items, total=total, limit=limit, offset=offset)
 
