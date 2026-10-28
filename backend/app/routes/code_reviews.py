@@ -11,6 +11,8 @@ from app.services.ai_review_service import review_code
 
 # Stage 7: Import confidence scoring function
 from app.services.confidence_service import calculate_confidence
+# Stage 8: Import overall risk scoring function
+from app.services.risk_score_service import calculate_risk
 
 logger = logging.getLogger(__name__)
 
@@ -51,6 +53,14 @@ def create_code_review(review: CodeReviewCreate, db: Session = Depends(get_db)):
                 confidence_evidence=evidence,
             )
         )
+
+    
+    # Stage 8: Calculate overall risk from the detected issues.
+    risk = calculate_risk(issues)
+
+    db_review.risk_score = risk["risk_score"]
+    db_review.risk_level = risk["risk_level"]
+    db_review.risk_breakdown = risk["risk_breakdown"]
 
     db_review.review_status = "completed"
     db.commit()

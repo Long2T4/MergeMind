@@ -1,5 +1,6 @@
 import ReviewSummary from './ReviewSummary'
 import IssueCard from './IssueCard'
+import RiskScoreCard from './RiskScoreCard'
 
 function ReviewDetail({ review, onClose, backLabel = 'Back to reviews' }) {
   return (
@@ -9,6 +10,7 @@ function ReviewDetail({ review, onClose, backLabel = 'Back to reviews' }) {
       </button>
 
       <ReviewSummary review={review} />
+      <RiskScoreCard review={review} />
 
       <pre className="review-detail-code">{review.submitted_code}</pre>
 

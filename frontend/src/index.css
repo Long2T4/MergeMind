@@ -615,3 +615,128 @@ button:focus-visible {
   font-size: 0.8rem;
   opacity: 0.75;
 }
+
+
+/* Stage 8: Pull Request Risk Score */
+
+.risk-score-card {
+  padding: 1.5rem;
+  margin: 1.5rem 0;
+  border: 1px solid #d1d5db;
+  border-radius: 12px;
+  background: #ffffff;
+}
+
+.risk-score-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.risk-score-header h3 {
+  margin: 0 0 0.4rem;
+}
+
+.risk-score-header p,
+.risk-score-note,
+.risk-score-unavailable {
+  color: #6b7280;
+  font-size: 0.9rem;
+}
+
+.risk-score-overall {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.35rem;
+}
+
+.risk-score-overall strong {
+  font-size: 1.75rem;
+}
+
+.risk-score-level {
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+
+.risk-score-level-low {
+  color: #15803d;
+}
+
+.risk-score-level-medium {
+  color: #b45309;
+}
+
+.risk-score-level-high {
+  color: #b91c1c;
+}
+
+.risk-score-main-track,
+.risk-score-category-track {
+  width: 100%;
+  background: #e5e7eb;
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.risk-score-main-track {
+  height: 12px;
+  margin-bottom: 1.5rem;
+}
+
+.risk-score-category-track {
+  height: 8px;
+}
+
+.risk-score-main-fill,
+.risk-score-category-fill {
+  height: 100%;
+  border-radius: inherit;
+}
+
+.risk-score-fill-low {
+  background: #16a34a;
+}
+
+.risk-score-fill-medium {
+  background: #f59e0b;
+}
+
+.risk-score-fill-high {
+  background: #dc2626;
+}
+
+.risk-score-category-fill {
+  background: #6366f1;
+}
+
+.risk-score-categories {
+  display: grid;
+  gap: 1rem;
+}
+
+.risk-score-category-label {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 0.4rem;
+  font-size: 0.9rem;
+}
+
+.risk-score-note {
+  margin: 1.25rem 0 0;
+  line-height: 1.5;
+}
+
+@media (max-width: 480px) {
+  .risk-score-header {
+    flex-direction: column;
+  }
+
+  .risk-score-overall {
+    align-items: flex-start;
+  }
+}

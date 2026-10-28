@@ -69,6 +69,9 @@ class CodeReviewOut(BaseModel):
     programming_language: str
     review_status: str
     created_at: datetime
+    risk_score: int | None = None
+    risk_level: str | None = None
+    risk_breakdown: dict | None = None
     issues: list[ReviewIssueOut] = []
 
     class Config:

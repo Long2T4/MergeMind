@@ -40,6 +40,10 @@ class CodeReview(Base):
     review_status: Mapped[str] = mapped_column(String(50), default="pending")
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 
+    risk_score: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    risk_level: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    risk_breakdown: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+
     project: Mapped["Project"] = relationship(back_populates="code_reviews")
     issues: Mapped[list["ReviewIssue"]] = relationship(back_populates="review")
 
