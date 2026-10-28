@@ -1,6 +1,15 @@
 // Central place for all backend API calls.
 // Keeping this separate means components don't need to know the backend URL.
-const API_BASE_URL = 'http://localhost:8000'
+// Override with VITE_API_BASE_URL (e.g. for a deployed backend); defaults to the local API.
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000'
+
+export async function getProjects() {
+  const response = await fetch(`${API_BASE_URL}/projects/`)
+  if (!response.ok) {
+    throw new Error(`Failed to load projects (status ${response.status})`)
+  }
+  return response.json()
+}
 
 export async function getHealth() {
   const response = await fetch(`${API_BASE_URL}/health`)

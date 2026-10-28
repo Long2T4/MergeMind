@@ -107,6 +107,32 @@ def test_history_statistics():
         engine.dispose()
 
 
+def test_list_items_split_issue_counts_by_severity():
+    client, engine = make_client()
+    try:
+        with sessionmaker(bind=engine)() as db:
+            for severity in ("high", "medium", "medium", "low", "LOW"):
+                db.add(ReviewIssue(
+                    review_id=1,
+                    category="logic",
+                    severity=severity,
+                    explanation="Synthetic finding",
+                ))
+            db.commit()
+        add_reviews(engine, ("x = 1", "python", "completed"))
+        newest, seeded = client.get("/review-history/").json()["items"]
+        # Seeded review: the original high issue plus the five above.
+        assert seeded["issue_count"] == 6
+        assert seeded["high_severity_count"] == 2
+        assert seeded["medium_severity_count"] == 2
+        assert seeded["low_severity_count"] == 2
+        assert newest["medium_severity_count"] == 0
+        assert newest["low_severity_count"] == 0
+    finally:
+        client.close()
+        engine.dispose()
+
+
 def test_invalid_page_inputs_rejected():
     client, engine = make_client()
     try:

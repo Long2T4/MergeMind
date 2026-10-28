@@ -1,127 +1,89 @@
-
 import { useState } from 'react'
-import SeverityBadge from './SeverityBadge'
+import { codeContext } from '../lib/code'
 import CategoryBadge from './CategoryBadge'
+import ConfidenceMeter, { ConfidencePill, confirmedEvidence } from './ConfidenceMeter'
 import FormattedText from './FormattedText'
+import Icon from './layout/Icon'
+import SeverityBadge from './SeverityBadge'
+import CodeBlock from './ui/CodeBlock'
 
-function IssueCard({ issue }) {
-  const [isExpanded, setIsExpanded] = useState(false)
+function IssueCard({ issue, code, language, defaultExpanded = false }) {
+  const [isExpanded, setIsExpanded] = useState(defaultExpanded)
 
   // Older issues saved before the title/why_it_matters fields existed may
   // have title: null — fall back to a generic label rather than showing blank.
   const displayTitle = issue.title || 'Code review finding'
-
-  const confidenceScore = issue.confidence_score
-  const confidenceLevel = issue.confidence_level
-  const confidenceEvidence = issue.confidence_evidence
-  const hasConfidence = confidenceScore != null
-
-  const evidenceLabels = {
-    ai: 'AI analysis',
-    semgrep: 'Semgrep',
-    bandit: 'Bandit',
-    test_failure: 'Failed tests',
-    git_history: 'Git history',
-    dependency: 'Dependency analysis',
-  }
-
-  const confirmedEvidence = Object.entries(confidenceEvidence || {})
-    .filter(([, confirmed]) => confirmed === true)
-    .map(([source]) => evidenceLabels[source] || source)
+  const severity = String(issue.severity || '').toLowerCase()
+  const bodyId = `issue-${issue.id}-details`
+  const context = codeContext(code, issue.line_number)
+  const evidence = confirmedEvidence(issue.confidence_evidence)
 
   return (
-    <li className={`issue-card severity-border-${issue.severity}`}>
-      <button
-        type="button"
-        className="issue-card-header"
-        onClick={() => setIsExpanded((prev) => !prev)}
-        aria-expanded={isExpanded}
-      >
-        <div className="issue-card-badges">
+    <li id={`issue-${issue.id}`} className={`issue-card severity-border-${severity} ${isExpanded ? 'is-open' : ''}`}>
+      <h3 className="issue-card-heading">
+        <button
+          type="button"
+          className="issue-card-header"
+          onClick={() => setIsExpanded((prev) => !prev)}
+          aria-expanded={isExpanded}
+          aria-controls={bodyId}
+        >
           <SeverityBadge severity={issue.severity} />
+          <span className="issue-card-title">{displayTitle}</span>
           <CategoryBadge category={issue.category} />
-        </div>
-        <span className="issue-card-title">{displayTitle}</span>
-        <span className={`issue-card-chevron ${isExpanded ? 'is-open' : ''}`} aria-hidden="true">
-          ▾
-        </span>
-      </button>
+          <span className="issue-card-meta">
+            <ConfidencePill issue={issue} />
+            {issue.line_number != null && (
+              <span className="issue-card-line">line {issue.line_number}</span>
+            )}
+            <Icon name="chevronDown" size={16} className="issue-card-chevron" />
+          </span>
+        </button>
+      </h3>
 
-      <div className={`issue-card-body ${isExpanded ? 'is-open' : ''}`}>
-        <div className="issue-card-body-inner">
-          <section className="issue-section">
-            <h4>What's wrong?</h4>
-            <FormattedText text={issue.explanation} />
+      <div className="issue-card-body" id={bodyId} hidden={!isExpanded}>
+        <div className="issue-explain">
+          <section>
+            <h4 className="issue-label">What's wrong</h4>
+            <FormattedText text={issue.explanation} language={language} />
           </section>
 
           {issue.why_it_matters && (
-            <section className="issue-section">
-              <h4>Why does it matter?</h4>
-              <FormattedText text={issue.why_it_matters} />
+            <section>
+              <h4 className="issue-label">Why it matters</h4>
+              <FormattedText text={issue.why_it_matters} language={language} />
             </section>
-          )}
-
-          {issue.suggested_fix && (
-            <section className="issue-section issue-section-fix">
-              <h4>How do I fix it?</h4>
-              <FormattedText text={issue.suggested_fix} />
-            </section>
-          )}
-
-          <section className="issue-section issue-confidence">
-            <h4>Confidence Score</h4>
-
-            {hasConfidence ? (
-              <>
-                <div className="confidence-header">
-                  <span className="confidence-value">
-                    {confidenceScore} / 100
-                  </span>
-                  <span className="confidence-level">
-                    {confidenceLevel || 'Unclassified'} confidence
-                  </span>
-                </div>
-
-                <div
-                  className="confidence-progress"
-                  role="progressbar"
-                  aria-label="Confidence score"
-                  aria-valuenow={confidenceScore}
-                  aria-valuemin={0}
-                  aria-valuemax={100}
-                >
-                  <div
-                    className="confidence-progress-fill"
-                    style={{
-                      width: `${Math.max(0, Math.min(100, confidenceScore))}%`,
-                    }}
-                  />
-                </div>
-
-                <p className="confidence-evidence">
-                  <strong>Supporting evidence:</strong>{' '}
-                  {confirmedEvidence.length > 0
-                    ? confirmedEvidence.join(', ')
-                    : 'No evidence sources recorded'}
-                </p>
-
-                <p className="confidence-note">
-                  This score measures supporting evidence, not the
-                  probability that a finding is correct.
-                </p>
-              </>
-            ) : (
-              <p className="confidence-unavailable">
-                Not scored — this review may have been created before
-                confidence scoring was introduced.
-              </p>
-            )}
-          </section>
-
-          {issue.line_number != null && (
-            <span className="issue-line-reference">Line {issue.line_number}</span>
           )}
         </div>
+
+        {context && (
+          <div className="code-panel">
+            <div className="code-panel-head">
+              <span>Flagged code</span>
+              <span className="mono">line {context.line}</span>
+            </div>
+            <CodeBlock
+              code={context.code}
+              language={language}
+              startLine={context.startLine}
+              flaggedLines={[context.line]}
+            />
+          </div>
+        )}
+
+        {issue.suggested_fix && (
+          <div className="code-panel is-fix">
+            <div className="code-panel-head">
+              <span>Suggested fix</span>
+              {evidence.length > 0 && <span className="mono">{evidence.join(' + ')}</span>}
+            </div>
+            <div className="code-panel-body">
+              <FormattedText text={issue.suggested_fix} language={language} />
+            </div>
+          </div>
+        )}
+
+        <ConfidenceMeter issue={issue} />
       </div>
     </li>
   )

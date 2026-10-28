@@ -5,9 +5,10 @@ const SEVERITY_LABELS = {
 }
 
 function SeverityBadge({ severity }) {
-  const label = SEVERITY_LABELS[severity] || severity
+  const key = String(severity || '').toLowerCase()
+  const label = SEVERITY_LABELS[key] || severity
 
-  return <span className={`severity-badge severity-${severity}`}>{label}</span>
+  return <span className={`severity-badge severity-${key}`}>{label}</span>
 }
 
 export default SeverityBadge
