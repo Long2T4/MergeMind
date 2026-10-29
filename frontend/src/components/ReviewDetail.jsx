@@ -101,7 +101,7 @@ function ReviewDetail({ review, projectName }) {
 
           {issues.length > 0 && (
             <p className="results-footnote">
-              Marking findings as fixed or as false positives is planned for Stage 9 and isn't available yet.
+              Marking findings as fixed or as false positives isn't available yet.
             </p>
           )}
 

@@ -586,3 +586,12 @@
   .learning-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .table-card-header { padding: 16px 18px; }
 }
+
+/* Optional project context follows the existing review form layout. */
+.project-context { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+.context-toggle { display: flex; align-items: center; gap: 10px; cursor: pointer; }
+.context-fields { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+.context-json { width: 100%; min-height: 140px; resize: vertical; font-family: var(--font-mono); font-size: 12px; }
+.context-fields input[type='file'] { max-width: 100%; }
+.context-summary { margin: 16px 0; overflow-wrap: anywhere; }
+.context-summary p, .context-summary ul { margin-top: 10px; }
