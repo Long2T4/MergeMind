@@ -21,7 +21,13 @@ it does not describe what is built today. For that, see the main
   [Stage 7 — Confidence Scoring (as built)](#stage-7--confidence-scoring-as-built).
 - **Stage 8 — PR Risk Scoring**: Complete (merged in `9f9f162`). See
   [Stage 8 — PR Risk Scoring (as built)](#stage-8--pr-risk-scoring-as-built).
-- **Stages 9–10**: Not started.
+- **Project-Aware Review context collector (Akhil's original Stage 9)**:
+  implemented on `feature/project-aware-context`, pending PR review/merge.
+  Standalone Python/JavaScript/TypeScript import-context selection with tests;
+  see [scope and usage](project-aware-context.md). API/AI/UI integration and
+  GitHub retrieval remain unimplemented. This does not resolve the conflicting
+  stage numbering below or implement developer feedback.
+- **Stage 10**: Not started.
 - **Frontend redesign** (dark theme, routed pages): in progress on
   `feature/ui-redesign`; not merged.
 
