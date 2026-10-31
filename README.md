@@ -1,136 +1,182 @@
-# AI Code Review Assistant
+# MergeMind
 
-A semester project that helps students and beginner developers review their code
-before submitting or merging it. Users submit code (or, eventually, a GitHub pull
-request) and receive an AI-generated review covering bugs, security issues, bad
-practices, and suggested improvements.
+MergeMind is an AI code review platform for students and junior developers. It reviews submitted code and explains each finding: what is wrong, why it matters, and how to fix it. Reviews are saved, so developers can revisit them and see which kinds of issues keep appearing.
 
-The application uses React/Vite, FastAPI, SQLAlchemy, Supabase PostgreSQL,
-and an Anthropic review service. It supports manual code submission, saved
-review results and history, confidence scoring, and finding-based risk scoring.
-Optional project snapshots now provide related import context for reviews.
-GitHub pull-request fetching is still future work.
+MergeMind is a university senior capstone project built by a student team. It runs locally today. It has not been deployed, and it isn't ready to host private code (see [Current limitations](#current-limitations)).
 
-## Project aware review
+## Why MergeMind
 
-On New Review, enable **Include related project files**, enter the reviewed
-file path, and paste or upload a JSON mapping of project file paths to source
-text. MergeMind selects direct local imports and includes them in the AI
-request. Ordinary single-file submissions still work without this option.
+Beginners often get no code review, or feedback that points out a problem without teaching anything. MergeMind focuses on explanation. It also tells users how much evidence supports each finding and what its scores do and don't mean.
 
-See [the integration guide](docs/project-aware-review.md) for an example,
-limits, API fields, and storage behavior. Snapshots are not saved with the
-review and must be attached again for retries.
+**Target users:** students, junior developers, and anyone learning to write better code.
 
-## Project Structure
+## Current features
 
+- **Code review:** paste code or upload a file, then choose a project and language.
+- **AI findings:** each finding has a category, severity, explanation, reason it matters, suggested fix, and line reference when available.
+- **Saved results:** a results page with severity counts, category filters, flagged code, and syntax-highlighted fixes.
+- **Review history:** search, status and language filters, pagination, and an issues-per-review chart. Filters stay in the URL.
+- **Confidence scores:** each finding shows how much evidence supports it.
+- **Merge risk scores:** each completed review gets a 0–100 score based on its findings.
+- **Project-aware review:** optionally attach a JSON snapshot of project files. MergeMind finds the files directly imported by the reviewed code and gives them to the AI as context.
+- **Learning page:** category counts, categories repeated across reviews, activity, and per-review counts, all calculated from saved reviews.
+- **Retry:** a failed review can be retried with its original code.
+- **Responsive dark interface:** a sidebar layout with keyboard support and error, loading and empty states.
+
+### What the scores mean
+
+- **Confidence** measures supporting evidence. It isn't the probability that a finding is correct. Only AI evidence exists today, so every new finding currently scores 20/low.
+- **Merge risk** is a heuristic based on findings. It isn't the probability of a failed merge. Despite the feature's "PR Risk Scoring" name, it doesn't use real pull request data yet.
+
+## Technology
+
+| Area | Technology |
+|---|---|
+| Frontend | React 18, Vite 5, React Router 6, highlight.js, custom CSS |
+| Backend | Python, FastAPI, SQLAlchemy 2, Pydantic 2, Uvicorn |
+| Database | PostgreSQL on Supabase |
+| AI | Anthropic Claude (`claude-haiku-4-5-20251001`), called only from the backend |
+| Testing | pytest, Vitest, Testing Library, jsdom |
+
+## Architecture
+
+```text
+React frontend (Vite, port 5173)
+        |
+        |  JSON over HTTP
+        v
+FastAPI backend (port 8000)
+  routes: health, users, projects, code_reviews, review_history
+        |
+        |-- project_context_service   selects directly imported files
+        |-- ai_review_service         builds the prompt and parses findings
+        |-- confidence_service        scores each finding's evidence
+        |-- risk_score_service        scores each review
+        |
+        +--> PostgreSQL (Supabase) through SQLAlchemy
+        +--> Anthropic API
 ```
-ai-code-review/
-├── frontend/        # React + Vite app
-│   └── src/
-│       ├── components/
-│       ├── pages/
-│       └── services/
-├── backend/         # FastAPI app
-│   └── app/
-│       ├── routes/
-│       ├── services/
-│       ├── models/
-│       └── database/
-├── docs/
-└── README.md
+
+```text
+backend/
+  app/
+    database/    Database connection
+    models/      SQLAlchemy models and Pydantic schemas
+    routes/      API endpoints
+    services/    AI review, context, confidence and risk logic
+  tests/
+frontend/
+  src/
+    components/  Shared UI, layout and review components
+    constants/   Shared languages, categories and project defaults
+    hooks/       History filters and project loading
+    lib/         Highlighting, formatting and learning calculations
+    pages/       Routed pages
+    services/    All backend API calls
+    test/        Frontend tests
+docs/            Project plan, usage guides, reviews and lessons learned
 ```
 
-## Requirements
+## How a review works
 
-- [Node.js](https://nodejs.org/) 18+ and npm (for the frontend)
-- Python 3.10+ (for the backend)
-- A [Supabase](https://supabase.com/) project (free tier is fine) for the database
-- An [Anthropic API key](https://console.anthropic.com/settings/keys) for the AI code review feature (Stage 4)
+1. The user submits code, with an optional project snapshot.
+2. The backend checks size limits and rejects invalid input before saving anything.
+3. If a snapshot was supplied, the backend selects directly imported files. It reads imports statically and never runs the code.
+4. A `pending` review is saved.
+5. Claude receives trusted instructions separately from the code, which is sent as untrusted JSON data.
+6. The response is parsed, and categories and severities are normalized.
+7. Findings are saved with confidence scores, and the review gets a risk score and a `completed` status.
+8. If the AI call fails, the review is saved as `failed` and can be retried.
 
-## Database Setup (Supabase)
+Selected code and context files are sent to Anthropic. Snapshots aren't saved with the review, so attach them again when retrying.
 
-This project uses Supabase-hosted PostgreSQL. You need your own connection string
-in a local `.env` file that is never committed to Git.
+## Pages
 
-1. Create a project at [supabase.com](https://supabase.com/).
-2. In the Supabase dashboard, go to **Project Settings → Database → Connection Pooling**
-   and copy the **Connection string (URI)** for **Transaction mode** (port `6543`).
-   Use the pooler connection, not the direct connection — the direct host is
-   IPv6-only and will time out on many networks.
-3. Copy `backend/.env.example` to `backend/.env`:
-   ```bash
-   cd backend
-   cp .env.example .env
-   ```
-4. Open `backend/.env` and set `DATABASE_URL` to your real connection string
-   (with your actual password, no square brackets):
-   ```
-   DATABASE_URL=postgresql://postgres.<project_ref>:<password>@aws-0-<region>.pooler.supabase.com:6543/postgres
-   ```
+| Route | Page |
+|---|---|
+| `/` | Home dashboard with statistics and recent reviews |
+| `/reviews/new` | New review |
+| `/reviews/:reviewId` | Review results |
+| `/history` | Review history |
+| `/learning` | Learning page |
+| `/projects` | Read-only project list |
 
-`backend/.env` is listed in `.gitignore` and should never be committed.
+## API endpoints
 
-## AI Review Setup (Anthropic)
+Interactive API docs are available at `http://localhost:8000/docs` while the backend is running.
 
-The AI review service (Stage 4) calls Claude to analyze submitted code. It's
-kept in its own module (`backend/app/services/ai_review_service.py`) so the
-rest of the app doesn't depend on any one AI provider — swapping providers
-later only means changing that one file.
+| Method | Path | Purpose |
+|---|---|---|
+| GET | `/health` | Health check |
+| GET, POST | `/users/` | List or create users |
+| GET, POST | `/projects/` | List or create projects |
+| POST | `/code-reviews/` | Create and run a review |
+| GET | `/code-reviews/` | List all reviews with their issues |
+| GET | `/review-history/` | Paged review summaries with search and filters |
+| GET | `/review-history/stats` | Totals for the same filters |
+| GET | `/review-history/{id}` | One full review |
 
-1. Get an API key at [console.anthropic.com/settings/keys](https://console.anthropic.com/settings/keys).
-2. Add it to `backend/.env`:
-   ```
-   ANTHROPIC_API_KEY=your_real_key_here
-   ```
+`POST /code-reviews/` accepts `project_id`, `submitted_code`, `programming_language`, and optional `project_context`. See the [project-aware review guide](docs/project-aware-review.md) for the format and limits.
 
-Without this key, code submissions still save to the database, but
-`review_status` will be `"failed"` and no issues will be generated. The key
-is never sent to or used by the frontend — all AI calls happen server-side.
+## Local setup
 
-## Running the Backend
+### Requirements
+
+- Node.js 18 or newer
+- Python 3.10 or newer
+- A [Supabase](https://supabase.com/) project
+- An [Anthropic API key](https://console.anthropic.com/settings/keys)
+
+### Environment variables
+
+Copy `backend/.env.example` to `backend/.env`. This file holds secrets and is ignored by Git, so never commit it.
+
+| Variable | Required | Purpose |
+|---|---|---|
+| `DATABASE_URL` | Yes | PostgreSQL connection string |
+| `ANTHROPIC_API_KEY` | For AI reviews | Without it, submissions save but end as `failed` |
+| `AI_PROVIDER` | No | Defaults to `anthropic`, the only supported provider |
+| `VITE_API_BASE_URL` | No | Frontend setting; defaults to `http://localhost:8000` |
+
+### Database
+
+In Supabase, open **Project Settings**, then **Database**, then **Connection Pooling**. Copy the Transaction mode URI (port `6543`). The direct database host can be IPv6-only and time out on many networks, even though `.env.example` shows that format.
+
+```text
+DATABASE_URL=postgresql://postgres.<project_ref>:<password>@aws-0-<region>.pooler.supabase.com:6543/postgres
+```
+
+The backend creates missing tables when it starts, but it can't add new columns to existing tables. A database created before Stages 7 and 8 needs these nullable columns added by hand:
+
+- `code_reviews`: `risk_score`, `risk_level`, `risk_breakdown`
+- `review_issues`: `confidence_score`, `confidence_level`, `confidence_evidence`
+
+Database migrations are planned for Stage 10.
+
+### Backend
 
 ```bash
 cd backend
 python -m venv venv
-venv\Scripts\activate      # on Windows
-# source venv/bin/activate # on macOS/Linux
+venv\Scripts\activate       # Windows
+# source venv/bin/activate  # macOS/Linux
 pip install -r requirements.txt
 uvicorn app.main:app --reload
 ```
 
-The API will be available at http://localhost:8000. On startup it connects to
-Supabase and creates any missing tables automatically.
+The API runs at `http://localhost:8000`.
 
-Check http://localhost:8000/health to confirm the server is running.
+### First-run data
 
-## Testing the Database Endpoints
-
-With the backend running, you can test the database using curl, the browser,
-or the interactive docs at http://localhost:8000/docs.
+A new database has no users or projects, and the app can't create them yet. With the backend running, create one of each:
 
 ```bash
-# Create a user
-curl -X POST http://localhost:8000/users/ \
-  -H "Content-Type: application/json" \
-  -d '{"name":"Test User","email":"test@example.com"}'
+curl -X POST http://localhost:8000/users/ -H "Content-Type: application/json" -d "{\"name\":\"Test User\",\"email\":\"test@example.com\"}"
 
-# List users
-curl http://localhost:8000/users/
-
-# Create a project (use a real user_id from above)
-curl -X POST http://localhost:8000/projects/ \
-  -H "Content-Type: application/json" \
-  -d '{"user_id":1,"name":"Test Project","description":"A test"}'
-
-# List projects
-curl http://localhost:8000/projects/
+curl -X POST http://localhost:8000/projects/ -H "Content-Type: application/json" -d "{\"user_id\":1,\"name\":\"Test Project\",\"description\":\"A test project\"}"
 ```
 
-If records still appear after restarting the backend, they are genuinely
-persisted in Supabase rather than held in memory.
-
-## Running the Frontend
+### Frontend
 
 ```bash
 cd frontend
@@ -138,45 +184,66 @@ npm install
 npm run dev
 ```
 
-The app will be available at http://localhost:5173. It calls the backend's
-`/health` endpoint on load and displays the status. You can also paste code,
-pick a language, and click "Review Code" to save a submission, run it through
-the AI reviewer, and see the resulting issue count appear in the list below.
+The app runs at `http://localhost:5173`. The backend only accepts browser requests from this address.
 
-## Current Stage
+## Running tests
 
-**Stage 1 — Project Foundation**: basic frontend/backend scaffolding with a
-working health check.
+```bash
+# Backend, from backend/
+pip install -r requirements-dev.txt
+python -m pytest tests -q
 
-**Stage 2 — Database**: Supabase PostgreSQL connected via SQLAlchemy, with
-`User`, `Project`, `CodeReview`, and `ReviewIssue` models and test endpoints
-for creating/listing users and projects.
+# Frontend, from frontend/
+npm test
+npm run build
+```
 
-**Stage 3 — Manual Code Submission**: the frontend has a form to paste code
-and pick a language. Submitting it saves a `CodeReview` row to Supabase (via
-`POST /code-reviews/`) and the page lists all past submissions (via
-`GET /code-reviews/`). Submissions are attached to a fixed default project
-(id 1) since project management/auth UI doesn't exist yet.
+At commit `99be62f`, 88 backend tests and 64 frontend tests passed, and the production build succeeded. Tests use in-memory SQLite and mocked AI responses, so they don't need Supabase or an Anthropic key.
 
-**Stage 4 — AI Review Service**: submitting code now also runs it through
-Claude (`backend/app/services/ai_review_service.py`), which returns
-structured findings (category, severity, explanation, line number, suggested
-fix). Findings are saved as `ReviewIssue` rows linked to the `CodeReview`, and
-`review_status` is set to `completed` or `failed` accordingly. The AI logic is
-isolated in one module so the provider can be swapped later without touching
-routes or the database layer. Each finding now stores `title`,
-`explanation`, and `why_it_matters` as separate fields (rather than one
-merged paragraph), plus `category`, `severity`, and an optional
-`line_number`.
+There is no CI yet, and the full flow with live Supabase and Anthropic has not been formally verified.
 
-**Stage 5 — Review Results UI**: clicking a review in the list opens a
-Review Detail view — status pill, total issue count, and a severity
-breakdown (high/medium/low), followed by expandable issue cards. Each card
-follows a "What's wrong? → Why does it matter? → How do I fix it?" learning
-flow, with a monospace line-reference chip when available. Review History and
-interim Learning analytics were added in later stages;
-GitHub retrieval remains future work.
+## Current limitations
 
-See [docs/PROJECT_PLAN.md](docs/PROJECT_PLAN.md) for the full stage roadmap
-and standing future requirements (Developer Learning feature, GitHub PR
-review goal) that later stages must account for.
+- **No authentication:** every endpoint is open, and anyone who can reach the API can read all reviews. Don't host this version or use it with private code.
+- **No GitHub integration:** MergeMind can't read pull requests or repositories yet. Project context comes from a manually supplied JSON snapshot.
+- **No static analysis:** Semgrep and Bandit aren't integrated, so confidence doesn't yet separate strong findings from weak ones.
+- **No developer feedback:** findings can't be marked fixed, dismissed or false positive.
+- **Learning page is interim:** it shows category data, not per-developer progress. A repeated category doesn't prove the same mistake, and a lower count doesn't prove improvement.
+- **AI findings can be wrong:** review them before acting on them. Line numbers come from the model and may be inaccurate.
+- **Direct imports only:** project context doesn't follow imports recursively.
+- **Known reliability gaps:** some malformed AI responses and invalid project IDs cause server errors, and such a review can stay `pending`. Stage 10 addresses these.
+- **TypeScript:** it can be selected but isn't syntax-highlighted yet.
+
+## Project status
+
+Stages 1–9 and a frontend redesign are complete. Stage 10 is the current stage.
+
+| Stage | Title | Status |
+|---|---|---|
+| 1–5 | Foundation, database, submission, AI review, results UI | Complete |
+| 6 | Review History | Complete |
+| 7 | Confidence Scoring | Complete |
+| 8 | PR Risk Scoring | Complete |
+| 9 | Project-Aware Review (supplied snapshots) | Complete |
+| 10 | Foundation and Stability | In progress |
+| 11 | GitHub Pull Request Integration | Planned |
+| 12 | Developer Feedback and Learning | Planned |
+| 13 | Static Analysis Integration | Planned |
+| 14 | Evaluation and Final Demo | Planned |
+
+Planned work isn't available yet. It includes reviews of public GitHub PR URLs, accounts with per-user data, finding outcomes, Semgrep and Bandit evidence, and a measured evaluation of review quality. See the full [project plan](docs/PROJECT_PLAN.md).
+
+## Contributors
+
+This table lists authors of the merged pull requests in Git. It doesn't capture every contribution, such as planning, testing and discussion.
+
+| Work | Pull request | Author in Git |
+|---|---|---|
+| Initial project | `159a5a2` | Long Truong |
+| Review History | [#1](https://github.com/Long2T4/MergeMind/pull/1) | bhavesh70655 |
+| Review History fixes | [#2](https://github.com/Long2T4/MergeMind/pull/2) | Long Truong |
+| Confidence Scoring | [#3](https://github.com/Long2T4/MergeMind/pull/3) | Yudith Vazquez-Jacinto |
+| PR Risk Scoring | [#4](https://github.com/Long2T4/MergeMind/pull/4) | Yudith Vazquez-Jacinto |
+| Frontend redesign | [#5](https://github.com/Long2T4/MergeMind/pull/5) | Long Truong |
+| Project-Aware Review | [#6](https://github.com/Long2T4/MergeMind/pull/6), [#7](https://github.com/Long2T4/MergeMind/pull/7) | Akhil Sajja |
+| Windows test fix | [#8](https://github.com/Long2T4/MergeMind/pull/8) | Long Truong |

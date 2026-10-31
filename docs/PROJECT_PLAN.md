@@ -1,247 +1,420 @@
-# MergeMind — Project Plan & Master Requirements
+# MergeMind Project Plan
 
-This document is the permanent record of what this project is meant to become.
-It exists so that future stages don't lose track of requirements that were
-agreed on early but are not implemented yet. It is a planning document only —
-it does not describe what is built today. For that, see the main
-[README.md](../README.md), which reflects only completed, working stages.
+This is the authoritative record of MergeMind's status, roadmap and project requirements. Where another document disagrees with this one, follow the code first, then this plan.
 
-## Status
+MergeMind is a university senior capstone and resume project, not a commercial product. The goal is a complete, reliable application that shows strong engineering without unnecessary complexity. Keep this in mind when judging scope.
 
-- **Stage 1 — Project Foundation**: Complete
-- **Stage 2 — Database**: Complete
-- **Stage 3 — Manual Code Submission**: Complete
-- **Stage 4 — AI Review Service**: Complete (uses the category set defined
-  in the Developer Learning requirement below)
-- **Stage 5 — Review Results UI**: Complete
-- **Stage 6 — Review History**: Complete (feature `308bbd5`, fixes merged in
-  `015d078`). See
-  [Stage 6 — Review History (as built)](#stage-6--review-history-as-built) below.
-- **Stage 7 — Confidence Scoring**: Complete (merged in `0c4bc34`). See
-  [Stage 7 — Confidence Scoring (as built)](#stage-7--confidence-scoring-as-built).
-- **Stage 8 — PR Risk Scoring**: Complete (merged in `9f9f162`). See
-  [Stage 8 — PR Risk Scoring (as built)](#stage-8--pr-risk-scoring-as-built).
-- **Project-Aware Review (Akhil's original Stage 9)**: collector merged in
-  [PR #6](https://github.com/Long2T4/MergeMind/pull/6). The follow-up API,
-  AI-prompt, and frontend supplied-snapshot integration is implemented on
-  `feature/project-aware-review-integration`, awaiting PR approval/review.
-  See [usage and boundaries](project-aware-review.md). GitHub retrieval and
-  persistent context snapshots remain future work. This does not implement
-  developer feedback or redefine the conflicting team stage numbering.
-- **Stage 10**: Not started.
-- **Frontend redesign** (dark theme, routed pages): merged in PR #5.
+- **Setup and current features:** [README](../README.md)
+- **Team workflow:** [CLAUDE.md](../CLAUDE.md)
+- **Project-aware review details:** [usage guide](project-aware-review.md) and [collector guide](project-aware-context.md)
 
-> The Stage 7 and Stage 8 that shipped don't match either definition in the
-> roadmap below. See [Open questions](#open-questions-for-team-confirmation).
+## Current status
 
-## Development Workflow & Records
+Last verified at commit `99be62f` on 2026-10-31.
 
-See [CLAUDE.md](../CLAUDE.md) for stage ownership and the development
-workflow. Supporting records for in-progress and completed work live in:
+| Item | Status |
+|---|---|
+| Stages 1–9 | Complete |
+| Frontend redesign | Complete |
+| Current stage | **Stage 10: Foundation and Stability** |
+| Backend tests | 88 passed, including on Windows |
+| Frontend tests | 64 passed |
+| Production build | Passed |
+| CI | Not set up |
+| Live Supabase and Anthropic verification | Not recorded |
+| Deployment | None; local only |
 
-- [docs/plans/](plans/README.md) — approved plans for work in flight
-- [docs/reviews/](reviews/README.md) — concise summaries of completed tasks
-- [docs/growth-log/](growth-log/README.md) — lessons learned, recurring problems
+## Completed work
 
-## Stage Roadmap (reference)
+The stage numbers below describe what was actually built. They replace the [original roadmap](#superseded-plans).
 
-1. Project Foundation — frontend/backend scaffolding, health check
-2. Database — Supabase PostgreSQL, core models (User, Project, CodeReview, ReviewIssue)
-3. Manual Code Submission — paste code, save to DB, display back
-4. AI Review Service — modular AI provider, structured findings
-5. Review Results UI — summary, severity breakdown, expandable issues
-6. Review History — dashboard of past reviews
-7. GitHub Integration — read PRs, review changed files
-8. Smarter Review Context — related files, project structure, imports
-9. Developer Feedback — Helpful / Not Helpful / False Positive / Fixed
-10. Final Improvements — error handling, tests, docs, polish
+| Stage | Title | What was delivered | Git evidence |
+|---|---|---|---|
+| 1 | Project Foundation | React and FastAPI scaffolding, health check | `159a5a2` |
+| 2 | Database Foundation | Supabase PostgreSQL, SQLAlchemy models, user and project endpoints | `159a5a2` |
+| 3 | Manual Code Submission | Submit code, save it, list reviews | `159a5a2` |
+| 4 | AI Review Service | Claude findings, normalization, saved failure state | `159a5a2` |
+| 5 | Review Results UI | Summary, severity counts, expandable findings | `159a5a2` |
+| 6 | Review History | History, search, filters, pagination, stats. Built by bhavesh70655, with later fixes from Long Truong | PR #1, PR #2 |
+| 7 | Confidence Scoring | Evidence weights, per-finding score, UI | PR #3 (Yudith Vazquez-Jacinto) |
+| 8 | PR Risk Scoring | Findings-based 0–100 score and breakdown | PR #4 (Yudith Vazquez-Jacinto) |
+| 9 | Project-Aware Review | Direct-import context from manually supplied snapshots | PR #6, PR #7 (Akhil Sajja) |
 
-## Master Requirement: Developer Learning Feature (Future)
+**Stages 1–5** arrived in one initial commit, so Git can't show their individual history. Commit authorship also doesn't prove the full division of work.
 
-This is a permanent, standing requirement for the project's end state. It is
-**not implemented as of Stage 2** and must not be built until the stages below
-explicitly call for it. It is recorded here so it isn't forgotten or designed
-around accidentally in earlier stages.
+**Additional completed work:**
+- **Frontend redesign (PR #5, Long Truong):** dark design system, routed pages, code editor, Learning and Projects pages, and Vitest tests. It also added medium and low severity counts to History rows.
+- **Windows test fix (PR #8, Long Truong):** short test IDs let the full backend suite run on Windows.
 
-MergeMind should eventually:
+### As-built notes
 
-1. **Track review findings by the developer who authored the code** — every
-   finding should be traceable to the specific developer/user responsible for
-   the reviewed code, not just the project.
-2. **Categorize mistakes** into a fixed set of categories:
-   - Security
-   - Testing
-   - Error Handling
-   - Input Validation
-   - Database
-   - Performance
-   - Code Quality
-   - Logic
-3. **Store finding outcomes**: `open`, `fixed`, `dismissed`, `false_positive`.
-4. **Detect recurring mistakes** — identify when a developer repeats the same
-   category of mistake across multiple pull requests/reviews.
-5. **Show mistake counts and improvement trends over time** — e.g. a category
-   like "Testing" trending down (7 → 5 → 2) across recent reviews.
-6. **Provide a Developer Learning Profile** — a summary view per developer
-   showing PRs reviewed, issues fixed, common mistake types, and improvement
-   trends.
+**Stage 6: Review History**
+- `GET /review-history/` returns paged summaries, not full code.
+- `GET /review-history/stats` uses the same filters as the list.
+- `GET /review-history/{id}` returns one full review.
+- Search treats `%` and `_` literally.
+- History filters and page are kept in the URL.
 
-### Where this lands in the roadmap
+**Stage 7: Confidence Scoring**
+- Weights: AI 20, Semgrep 25, Bandit 20, failed test 20, git history 10, dependency 5.
+- Levels: high at 80 or above, medium at 50 or above, otherwise low.
+- Only AI evidence exists today, so every new finding scores 20/low.
+- The score measures supporting evidence, not the probability a finding is correct.
 
-- **Stage 4**: AI assigns a `category` to each finding (the schema field for
-  this already exists as of Stage 2).
-- **Stage 6**: Review history is persisted and queryable — the prerequisite
-  data for trend detection.
-- **Stage 7**: Developer Learning Profile itself — recurring-mistake
-  detection, trend analysis, and the profile UI shown above are built here,
-  not earlier.
-- **Stage 9**: Developer feedback (Helpful/Not Helpful/False Positive/Fixed)
-  populates the `status` field added in Stage 2, which Stage 7's outcome
-  tracking depends on.
+**Stage 8: PR Risk Scoring**
+- Severity points: high 30, medium 15, low 5.
+- Groups: security, testing, maintainability, performance, each capped at 100.
+- Weights: 0.35, 0.25, 0.25, 0.15.
+- Severity floors: high 70, medium 40, low 10.
+- The score is a heuristic based on findings. It isn't the probability of a failed merge, and it doesn't use real PR data yet.
 
-### What already exists in the schema to support this (Stage 2)
+**Stage 9: Project-Aware Review**
+- Python imports are read with `ast`. JS and TS imports use a lightweight tokenizer.
+- Selected context is limited to 8 direct-import files and 24,000 characters.
+- A snapshot may hold 50 files and 200,000 characters. The full prompt is limited to 250,000 characters.
+- Snapshots and diagnostics aren't stored.
+- The collector doesn't depend on GitHub, the database or the AI provider, so a GitHub adapter can reuse it.
 
-- `ReviewIssue.category` (free-text field) — ready to hold the categories above.
-- `ReviewIssue.status` — added in Stage 2 specifically to support future
-  outcome tracking (`open`, `fixed`, `dismissed`, `false_positive`).
-- `ReviewIssue → CodeReview → Project → User` — an existing join path that
-  already lets a finding be traced back to a developer, without needing a
-  direct foreign key yet.
+## Approved roadmap: Stages 10–14
 
-No further schema or code changes are needed until Stage 4/6/7 actually
-require them.
+The team chose the **Portfolio Version**. Each stage must keep existing features working.
 
-## Master Requirement: MVP Scope vs. Final Goal
+```text
+10 Foundation and Stability
+ ├─ 11 GitHub Pull Request Integration
+ ├─ 12 Developer Feedback and Learning
+ └─ 13 Static Analysis Integration
+        └─ all three feed 14 Evaluation and Final Demo
+```
 
-**Early MVP (Stages 3–6):** review a single pasted code snippet or a single
-file submitted manually through the frontend. No GitHub involvement.
+Stages 11, 12 and 13 can run mostly in parallel after Stage 10, if each has a clear owner. Coordinate schema changes, because Stages 11, 12 and 13 all change the database. Stage 12's access rules must also cover anything Stage 11 adds.
 
-**Final goal (Stage 7+):** project-aware review of a GitHub pull request —
-not just the diff in isolation, but using relevant surrounding files and
-project context (related files, project structure, imports, function calls,
-database models, API routes — see Stage 8) to catch issues a simple
-"paste one file into an LLM" tool would miss.
+| Stage | Difficulty | Owner | Priority |
+|---|---|---|---|
+| 10 Foundation and Stability | Low to medium | TBD | Essential |
+| 11 GitHub Pull Request Integration | High | TBD | Essential |
+| 12 Developer Feedback and Learning | Medium | TBD | Essential |
+| 13 Static Analysis Integration | Medium | TBD | Essential for the Portfolio Version |
+| 14 Evaluation and Final Demo | Medium | TBD | Essential |
 
-The manual single-file flow is a deliberate stepping stone, not the final
-product. Later stages should extend this path rather than replace it outright,
-since PR review will still need a place to display and store findings — the
-same `CodeReview`/`ReviewIssue` models built in Stage 2.
+### Stage 10: Foundation and Stability
 
-## Stage 6 — Review History (as built)
+**Goal:** make the current application dependable and safe to change.
 
-Read-only dashboard of past reviews over the existing `code_reviews` /
-`review_issues` tables (no schema changes).
+**Depends on:** nothing. All later stages depend on this one.
 
-- **API** (`backend/app/routes/review_history.py`):
-  - `GET /review-history/` — paginated (`limit` ≤ 50, `offset`) newest-first
-    list of **summaries**: `code_preview` (first 160 chars), `issue_count`,
-    `high_severity_count`, `medium_severity_count`, `low_severity_count`
-    (the last two were added with the frontend redesign). Filters: `q`
-    (search code/language, `%`/`_` matched literally), `language`, `status`,
-    `project_id`.
-  - `GET /review-history/stats` — totals for the reviews matching the
-    **same filters** as the list.
-  - `GET /review-history/{id}` — full review (code + issues) for the detail
-    view; 404 if missing.
-- **UI**: `ReviewHistory.jsx` (filters, debounced search, pagination, stats,
-  issues-per-review chart). A saved review opens at `/reviews/:id`, which
-  loads it by id. Filters and page live in the URL
-  (`/history?q=&language=&status=&page=`), so they survive opening a review
-  and coming back. Language options come from
-  `frontend/src/constants/languages.js`, shared with the submit form.
-- **Tests**: `backend/tests/test_review_history.py` (in-memory SQLite, never
-  Supabase). Install `backend/requirements-dev.txt` to run them.
-- **Not in Stage 6**: issue feedback status updates (`fixed`, `dismissed`,
-  `false_positive`) stay in **Stage 9**. `ReviewIssue.status` is returned
-  but cannot be changed yet.
+**Scope:**
+- Rewrite `README.md` and this plan.
+- Add GitHub Actions CI for backend tests, frontend tests and the build.
+- Add database migrations. Start from a baseline that matches the real Supabase schema.
+- Add indexes on `code_reviews.created_at`, `code_reviews.project_id` and `review_issues.review_id`.
+- Return a clear error for a nonexistent `project_id`.
+- Make normalization safe for missing or wrong AI field types.
+- Protect the final save, so a review can't stay `pending` after an error.
+- Handle reviews left `pending` by an interrupted process.
+- Reduce the risk of long AI responses being cut off by `max_tokens=2000`.
+- Run and record one live review with Anthropic and Supabase, using a safe test project.
+- Add TypeScript syntax highlighting.
+- Update stale "Stage 9" feedback text in `models.py`, `lib/learning.js` and `LearningPage.jsx`.
+- Update the `.env.example` database URL to match the README's pooler guidance.
 
-### Known risk: no authentication or per-user isolation
+**Already done:** Windows pytest test IDs (PR #8). This is verified, so don't redo it.
 
-This applies to the whole app, not just Stage 6. Every endpoint is
-unauthenticated, and History can list, search and open (by sequential id)
-the submitted source code of every project. That's acceptable for local
-development only. Before deployment, or before Stage 7 brings in GitHub
-(possibly private) code, add authentication and scope history queries to
-the current user's projects. Two related notes:
+**Known issues to fix (reproduced 2026-10-31 on SQLite with a mocked AI):**
 
-- `GET /review-history/{id}` makes walking review ids (1, 2, 3, …)
-  trivial, and `/stats?q=` lets a caller infer whether some code contains a
-  given string.
-- Search is a substring scan over `submitted_code`, which has no length
-  limit, so the cost grows with stored code size. When auth lands, consider
-  a submission size limit, a minimum search length, rate limiting, and an
-  upper bound on `offset`.
+| Input | Result today |
+|---|---|
+| Nonexistent `project_id` | 500 error |
+| `"explanation": null` from the AI | 500 error, review stuck on `pending` |
+| Non-string `title` from the AI | 500 error, review stuck on `pending` |
+| Truncated AI JSON | Handled: saved as `failed` |
 
-## Stage 7 — Confidence Scoring (as built)
+**Acceptance criteria:**
+- CI runs on every pull request and passes.
+- The cases above are covered by regression tests.
+- A fresh database and a copy of the real schema both migrate correctly.
+- No handled failure leaves a review stuck on `pending`.
+- A live review is completed and recorded in `docs/reviews/`.
+- TypeScript code is highlighted in the editor and results.
 
-Each finding gets an evidence-based confidence score.
+**Out of scope:** authentication, GitHub work, new product features.
 
-- **Service**: `backend/app/services/confidence_service.py`.
-  `calculate_confidence(evidence)` adds a weight for each confirmed evidence
-  source: AI 20, Semgrep 25, Bandit 20, failed test 20, git history 10,
-  dependency 5. It returns `confidence_score` (0–100) and
-  `confidence_level` (high ≥ 80, medium ≥ 50, otherwise low).
-- **Data**: three nullable columns on `review_issues`: `confidence_score`,
-  `confidence_level`, `confidence_evidence` (JSON). They're returned on every
-  issue in `CodeReviewOut`.
-- **Current behaviour**: only AI evidence exists today (`{"ai": true}`), so
-  every new finding scores **20 / low**. Higher scores need the static
-  analysers or test results, which aren't integrated yet.
-- **UI**: a confidence pill on each collapsed finding, plus a meter, evidence
-  list and interpretation note when expanded. Older findings show "Not scored".
-- **Meaning**: the score measures supporting evidence. It is not the
-  probability that a finding is correct.
+### Stage 11: GitHub Pull Request Integration
 
-## Stage 8 — PR Risk Scoring (as built)
+**Goal:** review a real public pull request from its URL.
 
-Each completed review gets a finding-based merge-risk score.
+**Depends on:** Stage 10.
 
-- **Service**: `backend/app/services/risk_score_service.py`.
-  `calculate_risk(issues)` adds severity points per finding (high 30,
-  medium 15, low 5) into four groups (security, testing, maintainability,
-  performance; each capped at 100). It takes a weighted sum (0.35 / 0.25 /
-  0.25 / 0.15) and applies a floor from the highest severity (high 70,
-  medium 40, low 10). Level: high ≥ 70, medium ≥ 40, otherwise low.
-- **Data**: nullable `risk_score`, `risk_level` and `risk_breakdown` (JSON)
-  on `code_reviews`, returned in `CodeReviewOut`. Failed reviews and older
-  reviews have no score.
-- **UI**: a score ring in the review header and an "Overall Merge Risk" card
-  with the per-group breakdown.
-- **Meaning**: the score is a heuristic from the detected findings. It is not
-  the probability of a failed merge, and it doesn't use PR metadata or test
-  results yet.
-- **Despite the name**: there's no GitHub pull-request input yet. Scores come
-  from pasted-code reviews.
+**Scope:**
+- Accept public `github.com` PR URLs, with strict URL validation.
+- Retrieve PR details, changed files and diffs using a read-only server-side token.
+- Focus findings on changed lines.
+- Retrieve imported files at the PR's exact commit and pass them to the Stage 9 collector.
+- Show the repository, PR title, PR author, commit and changed files.
+- Show progress for long reviews.
+- Set limits on PR size, and skip binary and generated files.
+- Keep manual reviews working.
 
-## Open questions for team confirmation
+**Expected data changes:** PR details, changed files and a nullable link from `code_reviews`. Use `review_issues.file_name` for multi-file results. Design this before implementing it.
 
-These are flagged, not decided. Nothing here has been changed in code, and
-the agreed requirements above have been left as written.
+**Acceptance criteria:**
+- A demo PR URL produces saved, per-file findings on changed lines.
+- PR author, commit and files are visible.
+- Invalid, private, missing and oversized PRs show clear errors.
+- GitHub is mocked in automated tests.
+- Existing manual review tests still pass.
 
-1. **The roadmap doesn't match what shipped as Stages 7 and 8.**
-   - The Stage Roadmap lists Stage 7 as *GitHub Integration* and Stage 8 as
-     *Smarter Review Context*.
-   - The Developer Learning section lists Stage 7 as the *Developer Learning
-     Profile*.
-   - What merged as Stages 7 and 8 is *Confidence Scoring* and *PR Risk
-     Scoring*.
-   - The team should confirm the new numbering and where GitHub Integration,
-     Smarter Review Context and the Developer Learning Profile now sit.
-2. **Learning page vs the Developer Learning Profile.**
-   - The redesign's Learning page shows category counts, categories
-     repeated across reviews, activity and per-review category counts. It
-     computes them in the browser from saved reviews.
-   - It doesn't attribute findings to individual developers, track outcomes,
-     detect identical mistakes or measure improvement.
-   - So it is **not** the Developer Learning Profile requirement. Confirm
-     that this interim view is acceptable.
-3. **Feedback statuses** (`fixed`, `dismissed`, `false_positive`) remain
-   Stage 9. Fix rates and false-positive counts in the redesign mock-ups
-   depend on it and aren't shown.
-4. **History for PR reviews.**
-   - The History list is still built for the single-snippet model: search
-     over `submitted_code` and a fixed language list.
-   - Once GitHub PR reviews exist, History will probably need repo, PR, file
-     and author filters.
-   - It will also need database indexes on `code_reviews.created_at`,
-     `project_id` and `review_issues.review_id`.
+**Risks:** large PRs, long AI runs, API limits and AI costs.
+
+**Out of scope:** OAuth, GitHub Apps, private repositories, webhooks, posting to GitHub, running repository code.
+
+### Stage 12: Developer Feedback and Learning
+
+**Goal:** give data an owner and record what happened to each finding.
+
+**Depends on:** Stage 10. Access rules must also cover Stage 11's data.
+
+**Scope:**
+- Add appropriate authentication and per-user data protection.
+- Add simple project creation and management.
+- Let users mark findings `open`, `fixed`, `dismissed` or `false_positive`.
+- Add validated, owner-only backend updates.
+- Add status controls to findings.
+- Improve the Learning page with real outcomes, overall and by category.
+
+**Expected data changes:** a user's auth identity, assigned owners for existing rows, a constraint on allowed statuses, and who and when fields for status changes.
+
+**Acceptance criteria:**
+- Tests prove one user can't read or change another user's data through any route.
+- Status changes persist, and invalid values are rejected.
+- Older reviews still open correctly.
+- Learning outcomes can be traced to saved findings.
+
+**Risks:** this changes API contracts and touches every route. "Fixed" is self-reported and must be labeled that way.
+
+**Out of scope:** teams and roles, developer identity mapping, XP, levels, streaks, invented improvement scores, complex analytics.
+
+### Stage 13: Static Analysis Integration
+
+**Goal:** back findings with evidence from non-AI tools.
+
+**Depends on:** Stage 10. It works on submitted code, and it can use Stage 11's files once they exist.
+
+**Scope:**
+- Integrate Semgrep and Bandit.
+- Normalize tool results into MergeMind's finding format.
+- Combine AI and tool findings, and remove duplicates.
+- Update confidence scoring with real evidence.
+- Show which tools support each finding.
+
+**Scoring note:** the current formula gives AI plus Semgrep 45 (low), and AI plus Bandit 40 (low). Only all three reach 65 (medium). Revisit the weights and levels so agreement between sources means something, while keeping the score's meaning as supporting evidence.
+
+**Expected data changes:** the source of each finding, and tool evidence. Existing findings keep their stored scores.
+
+**Acceptance criteria:**
+- Fixtures with known problems produce the expected tool findings.
+- One problem found by several sources appears as one finding.
+- Confidence varies with real evidence, and the UI shows that evidence.
+- A tool failure doesn't fail the whole review.
+- Analyzers never run repository code, and they use only MergeMind's own configuration.
+
+**Risks:** Semgrep's native Windows support needs checking first, and WSL or Docker may be required. Tool output can be noisy.
+
+**Out of scope:** ESLint (optional future work), auto-fixing, running tests.
+
+### Stage 14: Evaluation and Final Demo
+
+**Goal:** measure the product and finish a reliable demonstration.
+
+**Depends on:** Stages 11, 12 and 13, or whatever the team includes.
+
+**Scope:**
+- Evaluate MergeMind on a small set of code with known issues.
+- Measure what it catches and misses, and document limitations.
+- Prepare a repeatable demo repository with example pull requests.
+- Complete integration and regression testing.
+- Deploy securely if feasible. Otherwise, prepare a polished demo video.
+- Finalize all documentation.
+
+**Acceptance criteria:**
+- Evaluation results are reproducible and published with their method.
+- The scripted demo works from start to finish.
+- All tests and CI pass.
+- Docs describe only what works.
+- Any public deployment requires login or strict limits. It must not expose saved code or unlimited AI usage.
+
+**Risks:** late scope creep. Features freeze when this stage starts.
+
+**Out of scope:** new features and high-scale infrastructure.
+
+### If time runs short
+
+Cut in this order:
+1. Public deployment (use a demo video)
+2. Login and project management (accept a local demo, and say so clearly)
+3. Bandit
+4. Other Stage 12 and 13 polish
+
+Don't cut Stage 10, Stage 11, the evaluation, or the demo.
+
+## Remaining features
+
+| Feature | Status | Plan |
+|---|---|---|
+| CI | Not implemented | Stage 10 |
+| Database migrations | Not implemented | Stage 10 |
+| Review reliability | Partial | Stage 10 |
+| Live verification | Not recorded | Stage 10 |
+| Database indexes | Only `users.email` | Stage 10 |
+| TypeScript highlighting | Not implemented | Stage 10 |
+| Public PR URL review | Not implemented | Stage 11 |
+| Automatic GitHub context | Not implemented; manual snapshots work | Stage 11 |
+| Repository, PR and author display | Not implemented | Stage 11 |
+| Authentication and data isolation | Not implemented | Stage 12 |
+| Project creation UI | API exists; UI is read-only | Stage 12 |
+| Developer Feedback | `status` column only | Stage 12 |
+| Learning outcomes | Interim page, no outcomes | Stage 12 |
+| Semgrep and Bandit | Not implemented | Stage 13 |
+| Evidence-based confidence | Formula exists, AI evidence only | Stage 13 |
+| Quality evaluation | Not implemented | Stage 14 |
+| Demo repository | Not implemented | Stage 14 |
+| Deployment | Not implemented | Stage 14, if feasible |
+
+**Optional future work (only if time remains):**
+- ESLint
+- Dependency vulnerability scanning
+- Posting review comments to GitHub
+- Simple risk scoring use of PR metadata
+
+**Deliberately not planned for the capstone:**
+- GitHub OAuth, GitHub Apps and private repositories
+- Executing external project tests
+- Git history analysis
+- Recursive dependency analysis
+- Persistent project snapshots
+- A full per-developer Learning Profile with identity mapping
+- Teams, roles, microservices and job-queue infrastructure
+
+## Requirements
+
+### Security
+
+- Never commit secrets. `backend/.env` and `.claude/settings.json` stay out of Git.
+- API keys and tokens stay on the server.
+- Never run submitted or repository code.
+- Treat all submitted code as untrusted data in prompts.
+- Don't log source code or secrets.
+- Don't host publicly without login or strict limits.
+- Private code isn't supported.
+- Remember that selected code is sent to the AI provider.
+
+The app has no authentication today, so `GET /review-history/{id}` makes it easy to walk through every review. `/stats?q=` also reveals whether saved code contains a given string. Search is an unindexed scan, and `GET /code-reviews/` is unbounded. Stage 12 addresses access. Stage 14 must address request limits before any public deployment.
+
+### Testing
+
+- Every stage adds tests for new behavior, and all existing tests must keep passing.
+- Bugs get a regression test.
+- Automated tests use SQLite and mocked AI and GitHub services.
+- Never test against real Supabase data without team approval.
+- Report what was actually run. Don't claim live verification unless it happened.
+- UI changes get a browser check.
+
+### Honest data
+
+- Never invent metrics, or show XP, levels, streaks or fix rates without real data.
+- A repeated category isn't proof of the same mistake.
+- A lower count isn't proof of improvement.
+- Confidence isn't the probability a finding is correct.
+- Risk isn't the probability of a failed merge.
+- Unsupported features are omitted or marked "Coming soon".
+
+## Technical decisions
+
+Keep these unless the team agrees to change them:
+
+- All frontend API calls stay in `services/api.js`.
+- AI provider code stays in `ai_review_service.py`.
+- The context collector stays independent of GitHub, AI and the database. GitHub code is an adapter that supplies its input.
+- Language values have one shared source in `constants/languages.js`.
+- Code is sent to the AI as JSON data, separate from instructions.
+- History filters stay in the URL, and list rows stay lightweight.
+- Project snapshots aren't stored. Store only summaries if needed.
+- PR reviews extend the `CodeReview` and `ReviewIssue` flow instead of replacing it.
+- Manual reviews stay supported.
+- GitHub access uses public PR URLs and a read-only server-side token, not OAuth.
+
+## Team development rules
+
+- Check this plan before starting work. Follow [CLAUDE.md](../CLAUDE.md) for workflow.
+- Work on a branch and merge to `main` through a pull request.
+- Don't commit, push or merge on another person's behalf without their approval.
+- Credit work accurately. Stage 6 is credited to bhavesh70655, and PR #2 only fixed it. Don't attribute a teammate's work to someone else.
+- Commit authorship doesn't prove the full division of work.
+- Plan before large work, and record it in `docs/plans/`.
+- Summarize substantial work in `docs/reviews/`.
+- Record real lessons in `docs/growth-log/`.
+- Update this plan when a stage's status changes.
+
+## Developer Learning: permanent requirement
+
+Developer Learning is a permanent project goal. It was recorded early so it wouldn't be forgotten:
+
+1. Track findings by the developer who wrote the code.
+2. Categorize findings: Security, Testing, Error Handling, Input Validation, Database, Performance, Code Quality, Logic.
+3. Store outcomes: `open`, `fixed`, `dismissed`, `false_positive`.
+4. Detect recurring mistakes across reviews.
+5. Show counts and improvement trends over time.
+6. Provide a per-developer Learning Profile.
+
+**Status:** item 2 is complete. Item 3 is planned for Stage 12. Item 5 is limited to real counts and outcomes. Items 1, 4 and 6 aren't fully implemented.
+
+**Capstone scope:** Stage 12 improves the existing Learning page with real outcomes instead of building the full profile. The full requirement remains the long-term goal. See Open question 3.
+
+`ReviewIssue` links through `CodeReview` and `Project` to `User`. That identifies the project owner, not necessarily the code's author, so a future profile must separate the two. Stage 11's PR author data is the starting point.
+
+## Long-term goal
+
+The early MVP reviewed one pasted file. The final goal is project-aware review of GitHub pull requests that uses surrounding code to catch issues a single-file review would miss. Stage 11 delivers this for public pull requests. The manual flow stays supported.
+
+## Open questions
+
+1. **Stage owners:** who owns Stages 10–14, and when is the final demo? Owners are TBD.
+2. **Developer Feedback ownership:** `CLAUDE.md` assigns "Review History & Feedback" to a groupmate, but Feedback wasn't built and is now planned for Stage 12.
+3. **Developer Learning:** the plan has reduced its capstone scope. The whole team should confirm this.
+4. **Existing data:** which user should own existing Supabase rows in Stage 12?
+5. **Schema state:** how were Stage 7 columns added to Supabase, and does the live schema match the models? PR #4 says Stage 8 columns were added by hand. Inspect this before the migration baseline.
+6. **Database security:** is Row Level Security configured in Supabase?
+7. **License:** the repository is public but has no license. Does the team want one?
+8. **Pull request reviews:** none of PRs #1–#8 has a recorded GitHub review. Does the team want to require one?
+
+## Superseded plans
+
+This section is kept for history. **Don't use it for planning.**
+
+### Original roadmap
+
+1. Project Foundation
+2. Database
+3. Manual Code Submission
+4. AI Review Service
+5. Review Results UI
+6. Review History
+7. GitHub Integration
+8. Smarter Review Context
+9. Developer Feedback
+10. Final Improvements
+
+Stages 1–6 happened as planned. The rest changed:
+
+| Original item | What happened |
+|---|---|
+| Stage 7 GitHub Integration | Not built. Confidence Scoring became Stage 7. GitHub work is now Stage 11. |
+| Stage 8 Smarter Review Context | Partly delivered as Stage 9, using manual snapshots. PR Risk Scoring became Stage 8. |
+| Stage 9 Developer Feedback | Not built. Project-Aware Review became Stage 9. Feedback is now Stage 12. |
+| Stage 10 Final Improvements | Replaced by Stages 10–14. |
+
+An older section also placed the Developer Learning Profile in Stage 7. That didn't happen. The redesign's Learning page is an interim view.
+
+### Earlier roadmap proposals
+
+A larger proposal with Stages 10–21 included separate deployment, Git history, dependency scanning, GitHub Apps and sandboxed test execution. It was rejected as too large for a capstone in favor of the Portfolio Version above.
