@@ -159,7 +159,7 @@ def test_code_and_context_are_data_not_part_of_system_instructions(review_api):
     assert json.loads(request["messages"][0]["content"])["related_files"][0]["content"] == attack
 
 
-@pytest.mark.parametrize("code", ["x" * 200001, "\x01" * 50000])
+@pytest.mark.parametrize("code", ["x" * 200001, "\x01" * 50000], ids=["too-long", "control-chars"])
 def test_code_and_serialized_prompt_limits_precede_persistence(review_api, code):
     client, factory, provider, project_id = review_api
     body = payload(project_id)
