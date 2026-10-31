@@ -19,7 +19,7 @@ export async function getHealth() {
   return response.json()
 }
 
-export async function createCodeReview({ projectId, submittedCode, programmingLanguage }) {
+export async function createCodeReview({ projectId, submittedCode, programmingLanguage, projectContext }) {
   const response = await fetch(`${API_BASE_URL}/code-reviews/`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -27,10 +27,18 @@ export async function createCodeReview({ projectId, submittedCode, programmingLa
       project_id: projectId,
       submitted_code: submittedCode,
       programming_language: programmingLanguage,
+      ...(projectContext ? { project_context: projectContext } : {}),
     }),
   })
   if (!response.ok) {
-    throw new Error(`Failed to submit code review (status ${response.status})`)
+    const error = new Error(`Failed to submit code review (status ${response.status})`)
+    if (response.status === 422) {
+      const data = await response.json().catch(() => null)
+      error.message = typeof data?.detail === 'string'
+        ? data.detail : 'Check the code size and project context fields, then try again.'
+      error.validation = true
+    }
+    throw error
   }
   return response.json()
 }

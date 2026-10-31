@@ -6,10 +6,10 @@ imported local modules from a caller-supplied project snapshot. For example,
 reviewing a route that imports a database model can also provide that model
 as context instead of reviewing the route in isolation.
 
-This is the context-collection foundation, not a completed project-aware AI
-review flow. The existing API and frontend still submit one code snippet to
-the AI. Connecting this collector to those inputs and the AI prompt remains
-separate work. There are no API, database, UI or provider changes in this task.
+The collector was introduced independently in PR #6. The follow-up
+[project-aware review integration](project-aware-review.md) connects it to
+optional API/frontend snapshot inputs and the AI prompt. The collector itself
+remains independent of the API, database, UI, filesystem, and AI provider.
 
 ## Run an example
 
@@ -33,8 +33,8 @@ assert context.unresolved_imports == ()
 print(context.files[0].content)
 ```
 
-The caller supplies all file contents explicitly. A future upload or GitHub
-adapter can produce the same `project_files` mapping; the collector itself
+The caller supplies all file contents explicitly. The snapshot upload adapter
+or a future GitHub adapter can produce the same `project_files` mapping; the collector itself
 does not fetch repositories, read local files, execute code or call an LLM.
 Models, routes and APIs are included when they are imported; the collector
 does not guess files from their names or claim to understand function calls.
@@ -83,9 +83,9 @@ raise `ValueError`.
 - Only direct imports are collected. There is no recursive dependency graph,
   Python runtime import-path emulation, npm resolution, TypeScript path aliases,
   `.js`-to-`.ts` rewriting, dynamic import evaluation or non-code asset loading.
-- Supplied files remain untrusted source text. A future AI adapter must label
-  them as code data, enforce the final prompt/token budget, and handle
-  `unresolved_imports`/`omitted_files` in the review interface.
+- Supplied files remain untrusted source text. The integration labels them as
+  JSON code data, enforces a final serialized character limit, and displays
+  `unresolved_imports`/`omitted_files`. Provider token limits still apply.
 
 ## Tests
 

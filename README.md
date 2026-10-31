@@ -5,9 +5,22 @@ before submitting or merging it. Users submit code (or, eventually, a GitHub pul
 request) and receive an AI-generated review covering bugs, security issues, bad
 practices, and suggested improvements.
 
-This project is being built in stages. **Stage 1 (project foundation)** and
-**Stage 2 (database)** are complete: a React/Vite frontend, a FastAPI backend,
-and a Supabase PostgreSQL database connected via SQLAlchemy. No AI integration yet.
+The application uses React/Vite, FastAPI, SQLAlchemy, Supabase PostgreSQL,
+and an Anthropic review service. It supports manual code submission, saved
+review results and history, confidence scoring, and finding-based risk scoring.
+Optional project snapshots now provide related import context for reviews.
+GitHub pull-request fetching is still future work.
+
+## Project aware review
+
+On New Review, enable **Include related project files**, enter the reviewed
+file path, and paste or upload a JSON mapping of project file paths to source
+text. MergeMind selects direct local imports and includes them in the AI
+request. Ordinary single-file submissions still work without this option.
+
+See [the integration guide](docs/project-aware-review.md) for an example,
+limits, API fields, and storage behavior. Snapshots are not saved with the
+review and must be attached again for retries.
 
 ## Project Structure
 
@@ -160,8 +173,9 @@ merged paragraph), plus `category`, `severity`, and an optional
 Review Detail view — status pill, total issue count, and a severity
 breakdown (high/medium/low), followed by expandable issue cards. Each card
 follows a "What's wrong? → Why does it matter? → How do I fix it?" learning
-flow, with a monospace line-reference chip when available. No Review
-History dashboard, Developer Learning analytics, or GitHub integration yet.
+flow, with a monospace line-reference chip when available. Review History and
+interim Learning analytics were added in later stages;
+GitHub retrieval remains future work.
 
 See [docs/PROJECT_PLAN.md](docs/PROJECT_PLAN.md) for the full stage roadmap
 and standing future requirements (Developer Learning feature, GitHub PR

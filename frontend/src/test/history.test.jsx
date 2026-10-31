@@ -36,7 +36,7 @@ describe('Review History (Stage 6)', () => {
     const select = await screen.findByLabelText('Language')
 
     expect([...select.options].map((option) => option.value)).toEqual(
-      ['', 'python', 'javascript', 'java', 'c', 'cpp', 'other'],
+      ['', 'python', 'javascript', 'typescript', 'java', 'c', 'cpp', 'other'],
     )
     expect(screen.getByRole('option', { name: 'C++' })).toHaveValue('cpp')
 

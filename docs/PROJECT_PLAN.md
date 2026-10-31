@@ -21,15 +21,15 @@ it does not describe what is built today. For that, see the main
   [Stage 7 — Confidence Scoring (as built)](#stage-7--confidence-scoring-as-built).
 - **Stage 8 — PR Risk Scoring**: Complete (merged in `9f9f162`). See
   [Stage 8 — PR Risk Scoring (as built)](#stage-8--pr-risk-scoring-as-built).
-- **Project-Aware Review context collector (Akhil's original Stage 9)**:
-  implemented on `feature/project-aware-context`, pending PR review/merge.
-  Standalone Python/JavaScript/TypeScript import-context selection with tests;
-  see [scope and usage](project-aware-context.md). API/AI/UI integration and
-  GitHub retrieval remain unimplemented. This does not resolve the conflicting
-  stage numbering below or implement developer feedback.
+- **Project-Aware Review (Akhil's original Stage 9)**: collector merged in
+  [PR #6](https://github.com/Long2T4/MergeMind/pull/6). The follow-up API,
+  AI-prompt, and frontend supplied-snapshot integration is implemented on
+  `feature/project-aware-review-integration`, awaiting PR approval/review.
+  See [usage and boundaries](project-aware-review.md). GitHub retrieval and
+  persistent context snapshots remain future work. This does not implement
+  developer feedback or redefine the conflicting team stage numbering.
 - **Stage 10**: Not started.
-- **Frontend redesign** (dark theme, routed pages): in progress on
-  `feature/ui-redesign`; not merged.
+- **Frontend redesign** (dark theme, routed pages): merged in PR #5.
 
 > The Stage 7 and Stage 8 that shipped don't match either definition in the
 > roadmap below. See [Open questions](#open-questions-for-team-confirmation).

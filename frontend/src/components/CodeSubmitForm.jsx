@@ -7,6 +7,8 @@ import { DEFAULT_PROJECT_ID } from '../constants/projects'
 import Icon from './layout/Icon'
 import CodeEditor from './ui/CodeEditor'
 import ComingSoon from './ui/ComingSoon'
+import ProjectContextInput from './ProjectContextInput'
+import { buildProjectContext } from '../lib/projectContext'
 
 const MAX_UPLOAD_BYTES = 200 * 1024
 const IS_MAC = typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.platform || '')
@@ -26,6 +28,32 @@ function CodeSubmitForm({ projects = [], initialValues = {}, onSubmit, isSubmitt
   const [fileName, setFileName] = useState(null)
   const [uploadError, setUploadError] = useState('')
   const fileInputRef = useRef(null)
+  const [contextInput, setContextInput] = useState({ enabled: false, filePath: '', sourceRoot: '', snapshotText: '{}' })
+  const [contextUploadError, setContextUploadError] = useState('')
+  const [readingContext, setReadingContext] = useState(false)
+  let projectContext
+  let contextError = ''
+  if (contextInput.enabled) {
+    try { projectContext = buildProjectContext(contextInput) } catch (err) { contextError = err.message }
+  }
+  const codeError = code.length > 200000 ? 'Submit at most 200,000 code characters.' : ''
+
+  async function handleContextUpload(event) {
+    const file = event.target.files?.[0]
+    event.target.value = ''
+    if (!file) return
+    if (file.size > 1300000) {
+      setContextUploadError('That JSON file is too large. Choose a smaller project snapshot.')
+      return
+    }
+    setReadingContext(true)
+    setContextUploadError('')
+    try {
+      const text = await file.text()
+      setContextInput((current) => ({ ...current, snapshotText: text }))
+    } catch { setContextUploadError('Could not read the project snapshot. Choose it again.') }
+    finally { setReadingContext(false) }
+  }
 
   // Keep the selection valid once the real project list arrives.
   useEffect(() => {
@@ -37,11 +65,14 @@ function CodeSubmitForm({ projects = [], initialValues = {}, onSubmit, isSubmitt
   const projectOptions = projects.length > 0
     ? projects
     : [{ id: DEFAULT_PROJECT_ID, name: 'Default project' }]
-  const canSubmit = code.trim().length > 0 && !isSubmitting
+  const canSubmit = code.trim().length > 0 && !isSubmitting && !readingContext && !codeError
+    && (!contextInput.enabled || (!contextError && !contextUploadError))
 
   function submit() {
     if (!canSubmit) return
-    onSubmit({ code, language, projectId: Number(projectId) })
+    onSubmit({ code, language, projectId: Number(projectId),
+      ...(contextInput.enabled ? { projectContext } : {}),
+    })
   }
 
   function handleSubmit(event) {
@@ -121,7 +152,7 @@ function CodeSubmitForm({ projects = [], initialValues = {}, onSubmit, isSubmitt
                 ref={fileInputRef}
                 type="file"
                 hidden
-                accept=".py,.js,.jsx,.mjs,.cjs,.java,.c,.h,.cpp,.cc,.cxx,.hpp,.hh,.txt"
+                accept=".py,.js,.jsx,.ts,.tsx,.mjs,.cjs,.java,.c,.h,.cpp,.cc,.cxx,.hpp,.hh,.txt"
                 onChange={handleFileChange}
               />
               <button
@@ -137,6 +168,11 @@ function CodeSubmitForm({ projects = [], initialValues = {}, onSubmit, isSubmitt
           )}
         />
 
+        <ProjectContextInput value={contextInput}
+          onChange={(value) => { setContextInput(value); setContextUploadError('') }}
+          disabled={isSubmitting} error={contextError} uploadError={contextUploadError}
+          onUpload={handleContextUpload} reading={readingContext} />
+        {codeError && <p className="field-error" role="alert">{codeError}</p>}
         {uploadError && <p className="field-error" role="alert">{uploadError}</p>}
         {error && <div className="notice notice-error" role="alert">{error}</div>}
       </div>

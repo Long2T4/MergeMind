@@ -42,21 +42,21 @@ function NewReviewContent({ retryReviewId }) {
     return () => { active = false }
   }, [retryReviewId])
 
-  async function handleSubmit({ code, language, projectId }) {
+  async function handleSubmit({ code, language, projectId, projectContext }) {
     setIsSubmitting(true)
     setError('')
     try {
-      // Same request body as before the redesign: project_id, submitted_code, programming_language.
       const review = await createCodeReview({
         projectId,
         submittedCode: code,
         programmingLanguage: language,
+        ...(projectContext ? { projectContext } : {}),
       })
       // The AI review can be slow; don't pull the user back if they've left.
-      if (mounted.current) navigate(`/reviews/${review.id}`)
-    } catch {
+      if (mounted.current) navigate(`/reviews/${review.id}`, { state: { contextSummary: review.context_summary } })
+    } catch (err) {
       if (!mounted.current) return
-      setError('Failed to submit code. Please try again.')
+      setError(err.validation ? err.message : 'Failed to submit code. Please try again.')
       setIsSubmitting(false)
     }
   }
@@ -81,7 +81,7 @@ function NewReviewContent({ retryReviewId }) {
 
       {retryReviewId && initialValues && !retryError && (
         <p className="notice notice-info retry-notice" role="status">
-          Retrying review #{retryReviewId}. Running it creates a new review; the original stays in your history.
+          Retrying review #{retryReviewId}. Running it creates a new review; the original stays in your history. If it used project context, attach those files again.
         </p>
       )}
       {retryError && <p className="notice notice-error retry-notice" role="alert">{retryError}</p>}

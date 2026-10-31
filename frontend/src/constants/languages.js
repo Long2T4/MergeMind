@@ -1,10 +1,11 @@
 // Language values stored in code_reviews.programming_language.
 // Shared by the submit form and the History filter so the two can't drift apart.
-export const LANGUAGES = ['python', 'javascript', 'java', 'c', 'cpp', 'other']
+export const LANGUAGES = ['python', 'javascript', 'typescript', 'java', 'c', 'cpp', 'other']
 
 export const LANGUAGE_LABELS = {
   python: 'Python',
   javascript: 'JavaScript',
+  typescript: 'TypeScript',
   java: 'Java',
   c: 'C',
   cpp: 'C++',
@@ -15,6 +16,7 @@ export const LANGUAGE_LABELS = {
 export const LANGUAGE_SHORT = {
   python: 'PY',
   javascript: 'JS',
+  typescript: 'TS',
   java: 'JV',
   c: 'C',
   cpp: 'C++',
@@ -25,6 +27,7 @@ export const LANGUAGE_SHORT = {
 export const LANGUAGE_EXTENSIONS = {
   python: 'py',
   javascript: 'js',
+  typescript: 'ts',
   java: 'java',
   c: 'c',
   cpp: 'cpp',
@@ -35,6 +38,8 @@ export const LANGUAGE_EXTENSIONS = {
 const EXTENSION_TO_LANGUAGE = {
   py: 'python',
   js: 'javascript',
+  ts: 'typescript',
+  tsx: 'typescript',
   jsx: 'javascript',
   mjs: 'javascript',
   cjs: 'javascript',

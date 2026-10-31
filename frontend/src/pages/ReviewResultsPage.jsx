@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link, useLocation, useParams } from 'react-router-dom'
 import Icon from '../components/layout/Icon'
 import ReviewDetail from '../components/ReviewDetail'
+import ContextSummary from '../components/ContextSummary'
 import EmptyState from '../components/ui/EmptyState'
 import { projectLabel } from '../constants/projects'
 import { useProjects } from '../hooks/useProjects'
@@ -73,7 +74,10 @@ function ReviewResultsPage() {
     content = <ResultsSkeleton />
   } else {
     content = (
-      <ReviewDetail review={review} projectName={projectLabel(byId.get(review.project_id), review.project_id)} />
+      <>
+        <ContextSummary summary={location.state?.contextSummary} failed={review.review_status === 'failed'} />
+        <ReviewDetail review={review} projectName={projectLabel(byId.get(review.project_id), review.project_id)} />
+      </>
     )
   }
 
