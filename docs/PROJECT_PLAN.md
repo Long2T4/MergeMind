@@ -10,19 +10,19 @@ MergeMind is a university senior capstone and resume project, not a commercial p
 
 ## Current status
 
-Last verified on 2026-11-05. Most of Stage 10 was merged into `main` in PR #10 (merge commit `134a947`). Migration `0003` follows in PR #11.
+Last verified on 2026-11-05 at `main` `f12dbc6` (Stage 10 code merged in PR #10 and PR #11).
 
 | Item | Status |
 |---|---|
-| Stages 1–9 | Complete |
+| Stages 1–10 | Complete |
 | Frontend redesign | Complete |
-| Current stage | **Stage 10: Foundation and Stability** (local work done; see below) |
-| Backend tests | 109 passed, 6 PostgreSQL migration tests skipped locally (they run in CI) |
+| Current stage | **Stage 11: GitHub Pull Request Integration** (next) |
+| Backend tests | 109 passed, 10 PostgreSQL-only tests skipped locally (they run in CI) |
 | Frontend tests | 68 passed |
 | Production build | Passed |
-| CI | Running: all 4 jobs passed on PR #10 and on `main` |
-| Database migrations | `0001` and `0002` on `main`; `0003` in PR #11. None applied to Supabase yet |
-| Live Supabase and Anthropic verification | Not recorded; procedure ready |
+| CI | All 4 jobs pass on pull requests and on `main` |
+| Database migrations | `0001`–`0003` applied to Supabase on 2026-11-05; schema matches the models |
+| Live Supabase and Anthropic verification | Passed on 2026-11-05 (reviews #13 and #14) |
 | Deployment | None; local only |
 
 ## Completed work
@@ -123,16 +123,16 @@ Stages 11, 12 and 13 can run mostly in parallel after Stage 10, if each has a cl
 
 **Progress (2026-11-05):** see the [Stage 10 report](reviews/stage-10-foundation-review.md).
 
-PR #10 was merged into `main` before migration `0003` was added to its branch. `0003` and its tests therefore follow in a separate PR (#11). Until #11 is merged, don't run `alembic upgrade head` on Supabase.
+**Stage 10 is complete.** PR #10 was merged before migration `0003` was added to its branch, so `0003` and its tests followed in PR #11. Both are merged, and the migrations were applied to Supabase after a read-only check and a backup.
 
 | Task | Status |
 |---|---|
 | 10.1 GitHub Actions CI | Done; all 4 jobs passed on PR #10 and on `main` |
 | 10.3 Review reliability | Done (PR #10); covered by 15 regression tests |
 | 10.5 TypeScript highlighting and stale labels | Done (PR #10) |
-| 10.2 Alembic migrations and indexes | `0001`, `0002` merged (PR #10); `0003` (version-table protection) in PR #11. Not applied to Supabase |
-| 10.4 Live verification | Read-only inspection and backup done; migration and live review need approval |
-| 10.6 Regression testing and docs | Done; final status update after live verification |
+| 10.2 Alembic migrations and indexes | Done: `0001`, `0002` (PR #10), `0003` version-table protection (PR #11); applied to Supabase |
+| 10.4 Live verification | Done: migration, two live reviews (one with project context), History and Learning data, and the 404 check |
+| 10.6 Regression testing and docs | Done |
 
 **Issues found 2026-10-31, now fixed:**
 
@@ -278,10 +278,10 @@ Don't cut Stage 10, Stage 11, the evaluation, or the demo.
 | Feature | Status | Plan |
 |---|---|---|
 | CI | Done | Stage 10 |
-| Database migrations | Added (`0003` in PR #11); not applied to Supabase | Stage 10 |
+| Database migrations | Done; applied to Supabase | Stage 10 |
 | Review reliability | Fixed and tested | Stage 10 |
-| Live verification | Not recorded; procedure ready | Stage 10 |
-| Database indexes | Added by migration `0002`; not applied to Supabase | Stage 10 |
+| Live verification | Done (2026-11-05) | Stage 10 |
+| Database indexes | Done; applied to Supabase | Stage 10 |
 | TypeScript highlighting | Done | Stage 10 |
 | Public PR URL review | Not implemented | Stage 11 |
 | Automatic GitHub context | Not implemented; manual snapshots work | Stage 11 |

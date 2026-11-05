@@ -1,11 +1,13 @@
 # Stage 10 Foundation and Stability — Review Summary
 
-**Status:** local work is complete on branch `stage-10/foundation` (2026-11-05). **Stage 10 is not complete yet.** Three things remain:
-1. the first GitHub Actions run, including the PostgreSQL migration tests;
-2. applying the migrations to Supabase;
-3. one live review with Anthropic.
+**Status (2026-11-05):** **Stage 10 verification is complete.** All steps passed, including the live Supabase and Anthropic checks. The stage closes when these final docs are merged.
 
-Nothing has been committed, pushed or run against Supabase or Anthropic.
+| Step | Status |
+|---|---|
+| Stage 10 code | Merged into `main` in PR #10 and PR #11 (`f12dbc6`) |
+| CI | All 4 jobs passed on both PRs and on `main` |
+| Supabase migration | **Done:** see [Supabase migration results](#supabase-migration-results) |
+| Live Anthropic review | **Done:** see [Live review results](#live-review-results) |
 
 **What was implemented:**
 
@@ -30,6 +32,9 @@ Nothing has been committed, pushed or run against Supabase or Anthropic.
   - Alembic `0001_baseline` creates only missing tables, adds only missing nullable or defaulted columns, never drops data, and refuses to downgrade.
   - `0002_review_indexes` adds indexes on `code_reviews.project_id`, `code_reviews.created_at` and `review_issues.review_id`, skipping any that already exist.
   - `0003_protect_version_table` (PostgreSQL only): Supabase gives its `anon` and `authenticated` API roles full access to new public tables. This migration turns on Row Level Security for `alembic_version`, without FORCE, so the owner that runs migrations is unaffected. It also removes those two roles' access to that table. App table permissions aren't changed.
+  - The models declare the same indexes.
+  - `main.py` no longer calls `create_all`.
+  - `alembic upgrade head --sql` previews the SQL without a database.
 
 **Read-only Supabase inspection (2026-11-05):**
 - PostgreSQL 17.6, reached through the pooler.
@@ -38,10 +43,8 @@ Nothing has been committed, pushed or run against Supabase or Anthropic.
 - There's no `alembic_version` table yet. All four app tables have Row Level Security enabled with no policies.
 - Two reviews have been stuck on `pending` for more than 30 minutes. They were left untouched.
 - A read-only JSON export of all four tables (1 user, 1 project, 12 reviews, 27 issues) is saved outside the repo.
-  - The models declare the same indexes.
-  - `main.py` no longer calls `create_all`.
-  - `alembic upgrade head --sql` previews the SQL without a database.
-- **10.6 Docs:** README setup, migrations, tests, CI, error codes and limitations; plan status; this report; the [Stage 10 plan](../plans/stage-10-plan.md).
+
+- **10.6 Docs:** README setup, migrations, tests, CI, error codes and limitations; plan status; this report; the [Stage 10 plan](../archive/stage-10-plan.md) (archived).
 
 **Tests run (2026-11-05, Windows, Python 3.12.1, Node 24):**
 
@@ -63,13 +66,64 @@ Nothing has been committed, pushed or run against Supabase or Anthropic.
 - **LOW:** case-sensitive duplicate emails (pre-existing) and `datetime.utcnow` deprecation warnings. **Left as is.**
 
 **Unresolved issues:**
-- The first CI run hasn't happened.
-- Migrations haven't been applied to Supabase.
-- Live verification hasn't been run.
+- Resolved since this report was first written: CI has run (all 4 jobs passed), migrations are applied to Supabase, and live verification passed. See the sections below.
+- AI line numbers can be off by one (seen in live review 2). This is a known limitation of model-reported lines.
+- Two reviews from before Stage 10 are still stuck on `pending`. They were left for a team decision; `python -m app.maintenance --apply` can mark them `failed`.
+- The app connects to Supabase as the `postgres` role. A least-privilege role is a Stage 12 consideration.
 - Backend tests show 174 deprecation warnings (Pydantic `Config`, `datetime.utcnow`). They're harmless, but worth cleaning up later.
 - A database must now be migrated before the app can use it. Without that, `/health` works but data routes fail with "no such table". The README documents this.
 
 **Lessons for future work:** none new beyond the existing growth log.
+
+## Supabase migration results
+
+Applied 2026-11-05 from `main` at `f12dbc6`, with team approval. `alembic upgrade head` was run once against the Supabase project (AWS us-east-2 pooler).
+
+**Before migrating** (read-only gate; the migration would not run unless all of these passed):
+- the database had never been migrated (no `alembic_version` table);
+- the only schema differences from the models were the 3 planned indexes;
+- all four tables matched the backup exactly (checksums).
+
+**Migration output:** `0001_baseline`, `0002_review_indexes` and `0003_protect_version_table` ran in one transaction and exited with code 0. The baseline added nothing, because no tables or columns were missing.
+
+**After migrating** (read-only checks; all 15 passed):
+
+| Check | Result |
+|---|---|
+| `alembic current` | `0003_protect_version_table (head)` |
+| Indexes | `ix_code_reviews_project_id`, `ix_code_reviews_created_at` and `ix_review_issues_review_id` all exist |
+| `alembic_version` Row Level Security | Enabled, not forced |
+| `anon` and `authenticated` on `alembic_version` | No SELECT, INSERT, UPDATE or DELETE access |
+| App tables | Row Level Security still enabled; permissions unchanged |
+| Live schema vs models | No differences |
+| Data | 1 user, 1 project, 12 reviews and 27 issues, identical to the backup |
+| Stuck reviews | Both `pending` reviews untouched |
+
+**Backup:** a read-only JSON export taken before migrating is in `C:\Users\Longt\Downloads\mergemind-db-backup-2026-11-05\` (local and private, not in the repo).
+
+## Live review results
+
+Run 2026-11-05 from `main` at `f12dbc6`, with team approval. It went through the real app code, the real Supabase database and the real Anthropic API.
+- **Budget:** at most 2 Anthropic calls, with the SDK's automatic retries turned off.
+- **Data sent:** fictional code only.
+- **Project:** a dedicated "Stage 10 verification" project (id 2), under the existing test user.
+
+| Check | Result |
+|---|---|
+| Nonexistent project (`project_id` 999999999) | **404** "Project not found", with 0 Anthropic calls |
+| Review 1: `average()` on an empty list | **#13 completed.** 1 finding: high, error_handling, "Division by zero error on empty input", line 5 (correct) |
+| Review 1 scores | Confidence 20/low (`{"ai": true}`); risk 70/high (maintainability 30) |
+| Review 1 in the app | Detail endpoint returns the same review; History shows it with 1 issue (1H 0M 0L) |
+| Review 2: `create_user("")` with the example snapshot | **#14 completed.** 1 finding: high, logic, "Empty string passed to function that rejects empty input" |
+| Review 2 scores | Confidence 20/low; risk 70/high |
+| Project context | **Worked.** `context_summary` selected `src/models.py` (134 characters), with nothing unresolved or omitted. The recorded request to Anthropic contained only `src/models.py`, not `src/unrelated.py`. The finding depends on code that exists only in `src/models.py` |
+| Learning page data | All 14 saved reviews loaded ("Based on all saved reviews"); both new reviews included; category totals and repeats calculated by `lib/learning.js` |
+| Anthropic usage | 2 calls, both `claude-haiku-4-5-20251001`, `stop_reason: end_turn`. Tokens in/out: 588/305 and 647/292 |
+| Existing data | The 2 stuck `pending` reviews were untouched, and no records were changed or deleted |
+
+**Limitation observed:** review 2's finding says line 5, but the empty-string call is on line 6. Line numbers come from the model and can be off by a line, as the README notes.
+
+**Data created:** project 2 and reviews 13 and 14, with their findings.
 
 ## Live verification procedure
 
@@ -101,7 +155,7 @@ Run this only with explicit approval. It uses the real Supabase database and one
 **Migrate:**
 
 3. Preview: from `backend/`, run `alembic upgrade head --sql` and read the output.
-4. Apply: `alembic upgrade head`. Then confirm `alembic current` shows `0002_review_indexes (head)`.
+4. Apply: `alembic upgrade head`. Then confirm `alembic current` shows `0003_protect_version_table (head)`.
 5. Dry run: `python -m app.maintenance`. This lists any reviews stuck on `pending`. Don't add `--apply` without a team decision.
 
 **Verify:**

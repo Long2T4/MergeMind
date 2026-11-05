@@ -221,7 +221,7 @@ GitHub Actions ([`.github/workflows/ci.yml`](.github/workflows/ci.yml)) runs on 
 
 CI needs no secrets.
 
-The full flow with live Supabase and Anthropic has not been formally verified yet. That is the last step of Stage 10.
+The full flow was verified live on 2026-11-05, against Supabase and the Anthropic API. It covered the migrations, a normal review, a review with project context, History, and the Learning data. See the [Stage 10 report](docs/reviews/stage-10-foundation-review.md#live-review-results).
 
 ## Current limitations
 
@@ -236,7 +236,7 @@ The full flow with live Supabase and Anthropic has not been formally verified ye
 
 ## Project status
 
-Stages 1–9 and a frontend redesign are complete. Stage 10 is the current stage.
+Stages 1–10 and a frontend redesign are complete. Stage 11 is next.
 
 | Stage | Title | Status |
 |---|---|---|
@@ -245,7 +245,7 @@ Stages 1–9 and a frontend redesign are complete. Stage 10 is the current stage
 | 7 | Confidence Scoring | Complete |
 | 8 | PR Risk Scoring | Complete |
 | 9 | Project-Aware Review (supplied snapshots) | Complete |
-| 10 | Foundation and Stability | In progress: local work done; CI run and live verification pending |
+| 10 | Foundation and Stability | Complete: CI, migrations, reliability fixes, live verification |
 | 11 | GitHub Pull Request Integration | Planned |
 | 12 | Developer Feedback and Learning | Planned |
 | 13 | Static Analysis Integration | Planned |
