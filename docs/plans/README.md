@@ -13,7 +13,8 @@ currently being implemented via the ECC orchestration pipeline
 - **Contents**: the plan's `task_list` as produced by the `planner` agent —
   nothing more. Don't duplicate `docs/PROJECT_PLAN.md`'s roadmap content here.
 - **Lifecycle**: the file stays until the stage/task merges to `main`. After
-  merge, delete it (the fact that it shipped is already reflected in
+  merge, delete it or move it to [`docs/archive/`](../archive/README.md)
+  (the fact that it shipped is already reflected in
   `docs/PROJECT_PLAN.md`'s status table). If a decision from the plan is
   worth keeping permanently, that belongs in an ADR or in
   `docs/PROJECT_PLAN.md`, not here.
