@@ -1,4 +1,4 @@
-// Syntax highlighting for the languages MergeMind supports. Only these five
+// Syntax highlighting for the languages MergeMind supports. Only these six
 // grammars are bundled (highlight.js core + per-language imports).
 import hljs from 'highlight.js/lib/core'
 import c from 'highlight.js/lib/languages/c'
@@ -6,17 +6,21 @@ import cpp from 'highlight.js/lib/languages/cpp'
 import java from 'highlight.js/lib/languages/java'
 import javascript from 'highlight.js/lib/languages/javascript'
 import python from 'highlight.js/lib/languages/python'
+import typescript from 'highlight.js/lib/languages/typescript'
 
 hljs.registerLanguage('python', python)
 hljs.registerLanguage('javascript', javascript)
+hljs.registerLanguage('typescript', typescript)
 hljs.registerLanguage('java', java)
 hljs.registerLanguage('c', c)
 hljs.registerLanguage('cpp', cpp)
 
-const SUPPORTED = new Set(['python', 'javascript', 'java', 'c', 'cpp'])
+const SUPPORTED = new Set(['python', 'javascript', 'typescript', 'java', 'c', 'cpp'])
 
 // Fenced-block hints the AI may use, mapped to our language values.
-const ALIASES = { py: 'python', js: 'javascript', jsx: 'javascript', 'c++': 'cpp', cc: 'cpp' }
+const ALIASES = {
+  py: 'python', js: 'javascript', jsx: 'javascript', ts: 'typescript', tsx: 'typescript', 'c++': 'cpp', cc: 'cpp',
+}
 
 export function resolveLanguage(language) {
   const key = String(language || '').toLowerCase()

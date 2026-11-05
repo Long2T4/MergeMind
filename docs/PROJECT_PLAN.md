@@ -10,18 +10,19 @@ MergeMind is a university senior capstone and resume project, not a commercial p
 
 ## Current status
 
-Last verified at commit `99be62f` on 2026-10-31.
+Last verified on 2026-11-05 on branch `stage-10/foundation` (local, not yet merged).
 
 | Item | Status |
 |---|---|
 | Stages 1–9 | Complete |
 | Frontend redesign | Complete |
-| Current stage | **Stage 10: Foundation and Stability** |
-| Backend tests | 88 passed, including on Windows |
-| Frontend tests | 64 passed |
+| Current stage | **Stage 10: Foundation and Stability** (local work done; see below) |
+| Backend tests | 109 passed, 6 PostgreSQL migration tests skipped locally (they run in CI) |
+| Frontend tests | 68 passed |
 | Production build | Passed |
-| CI | Not set up |
-| Live Supabase and Anthropic verification | Not recorded |
+| CI | Workflow added; first GitHub run pending |
+| Database migrations | Alembic added and tested on SQLite; not yet applied to Supabase |
+| Live Supabase and Anthropic verification | Not recorded; procedure ready |
 | Deployment | None; local only |
 
 ## Completed work
@@ -120,14 +121,27 @@ Stages 11, 12 and 13 can run mostly in parallel after Stage 10, if each has a cl
 
 **Already done:** Windows pytest test IDs (PR #8). This is verified, so don't redo it.
 
-**Known issues to fix (reproduced 2026-10-31 on SQLite with a mocked AI):**
+**Progress (2026-11-05, branch `stage-10/foundation`):** see the [Stage 10 report](reviews/stage-10-foundation-review.md).
 
-| Input | Result today |
+| Task | Status |
 |---|---|
-| Nonexistent `project_id` | 500 error |
-| `"explanation": null` from the AI | 500 error, review stuck on `pending` |
-| Non-string `title` from the AI | 500 error, review stuck on `pending` |
-| Truncated AI JSON | Handled: saved as `failed` |
+| 10.1 GitHub Actions CI | Done locally; first GitHub run pending |
+| 10.3 Review reliability | Done; covered by 15 regression tests |
+| 10.5 TypeScript highlighting and stale labels | Done |
+| 10.2 Alembic migrations and indexes | Done; tested on SQLite. PostgreSQL tests run in CI. Not applied to Supabase |
+| 10.4 Live verification | Procedure ready; needs approval to run |
+| 10.6 Regression testing and docs | Done locally |
+
+**Issues found 2026-10-31, now fixed:**
+
+| Input | Before | Now |
+|---|---|---|
+| Nonexistent `project_id` | 500 error | 404 before anything is saved |
+| `"explanation": null` from the AI | 500 error, stuck on `pending` | Saved as completed with safe values |
+| Non-string `title` from the AI | 500 error, stuck on `pending` | Saved as completed with safe values |
+| Truncated AI JSON | Saved as `failed` | Unchanged |
+| Answer cut off at the output limit | Could be parsed incompletely | Saved as `failed` |
+| Error while saving findings | Stuck on `pending` | Rolled back and saved as `failed` |
 
 **Acceptance criteria:**
 - CI runs on every pull request and passes.
@@ -261,12 +275,12 @@ Don't cut Stage 10, Stage 11, the evaluation, or the demo.
 
 | Feature | Status | Plan |
 |---|---|---|
-| CI | Not implemented | Stage 10 |
-| Database migrations | Not implemented | Stage 10 |
-| Review reliability | Partial | Stage 10 |
-| Live verification | Not recorded | Stage 10 |
-| Database indexes | Only `users.email` | Stage 10 |
-| TypeScript highlighting | Not implemented | Stage 10 |
+| CI | Workflow added; first run pending | Stage 10 |
+| Database migrations | Added; not applied to Supabase | Stage 10 |
+| Review reliability | Fixed and tested | Stage 10 |
+| Live verification | Not recorded; procedure ready | Stage 10 |
+| Database indexes | Added by migration `0002`; not applied to Supabase | Stage 10 |
+| TypeScript highlighting | Done | Stage 10 |
 | Public PR URL review | Not implemented | Stage 11 |
 | Automatic GitHub context | Not implemented; manual snapshots work | Stage 11 |
 | Repository, PR and author display | Not implemented | Stage 11 |
@@ -340,6 +354,8 @@ Keep these unless the team agrees to change them:
 - History filters stay in the URL, and list rows stay lightweight.
 - Project snapshots aren't stored. Store only summaries if needed.
 - PR reviews extend the `CodeReview` and `ReviewIssue` flow instead of replacing it.
+- The schema is changed only through Alembic migrations in `backend/alembic/`, never by `create_all` at startup. Migrations must be safe on existing data, and they are reviewed (`alembic upgrade head --sql`) before running on a shared database.
+- Production review records are never changed automatically. The stale-review cleanup (`python -m app.maintenance`) is a manual dry run unless `--apply` is given.
 - Manual reviews stay supported.
 - GitHub access uses public PR URLs and a read-only server-side token, not OAuth.
 

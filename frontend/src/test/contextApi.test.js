@@ -18,4 +18,9 @@ describe('Context request serialization', () => {
       .rejects.toMatchObject({ message: 'Project paths must be relative', validation: true })
     expect(JSON.parse(fetch.mock.calls[0][1].body)).not.toHaveProperty('project_context')
   })
+  it('explains a missing project instead of a generic failure', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 404, json: async () => ({ detail: 'Project not found' }) }))
+    await expect(createCodeReview({ projectId: 999, submittedCode: 'x', programmingLanguage: 'python' }))
+      .rejects.toMatchObject({ message: expect.stringMatching(/project no longer exists/), validation: true })
+  })
 })

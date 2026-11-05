@@ -5,7 +5,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session, joinedload
 
 from app.database.database import get_db
-from app.models.models import CodeReview, ReviewIssue
+from app.models.models import CodeReview, Project, ReviewIssue
 from app.models.schemas import CodeReviewCreate, CodeReviewOut, ContextSummary
 from app.services.ai_review_service import build_review_payload, review_code
 from app.services.project_context_service import collect_project_context
@@ -52,6 +52,11 @@ def create_code_review(review: CodeReviewCreate, db: Session = Depends(get_db)):
     except ValueError as error:
         raise HTTPException(status_code=422, detail=str(error)) from error
 
+    # Check before saving: a missing project would otherwise fail on the
+    # foreign key with an unhandled database error.
+    if db.get(Project, review.project_id) is None:
+        raise HTTPException(status_code=404, detail="Project not found")
+
     def response():
         result = CodeReviewOut.model_validate(db_review)
         result.context_summary = summary
@@ -82,30 +87,39 @@ def create_code_review(review: CodeReviewCreate, db: Session = Depends(get_db)):
         db.refresh(db_review)
         return response()
 
-    for issue in issues:
-        evidence = {"ai": True}
-        confidence = calculate_confidence(evidence)
+    review_id = db_review.id
+    try:
+        for issue in issues:
+            evidence = {"ai": True}
+            confidence = calculate_confidence(evidence)
 
-        db.add(
-            ReviewIssue(
-                review_id=db_review.id,
-                **issue,
-                confidence_score=confidence["confidence_score"],
-                confidence_level=confidence["confidence_level"],
-                confidence_evidence=evidence,
+            db.add(
+                ReviewIssue(
+                    review_id=review_id,
+                    **issue,
+                    confidence_score=confidence["confidence_score"],
+                    confidence_level=confidence["confidence_level"],
+                    confidence_evidence=evidence,
+                )
             )
-        )
 
-    
-    # Stage 8: Calculate overall risk from the detected issues.
-    risk = calculate_risk(issues)
+        # Stage 8: Calculate overall risk from the detected issues.
+        risk = calculate_risk(issues)
 
-    db_review.risk_score = risk["risk_score"]
-    db_review.risk_level = risk["risk_level"]
-    db_review.risk_breakdown = risk["risk_breakdown"]
+        db_review.risk_score = risk["risk_score"]
+        db_review.risk_level = risk["risk_level"]
+        db_review.risk_breakdown = risk["risk_breakdown"]
 
-    db_review.review_status = "completed"
-    db.commit()
+        db_review.review_status = "completed"
+        db.commit()
+    except Exception as error:
+        # Never leave the review "pending": discard partial findings and
+        # record the failure so it can be retried.
+        db.rollback()
+        logger.exception("Saving AI findings failed for code review id=%s: %s", review_id, error)
+        db_review = db.get(CodeReview, review_id)
+        db_review.review_status = "failed"
+        db.commit()
     db.refresh(db_review)
     return response()
 

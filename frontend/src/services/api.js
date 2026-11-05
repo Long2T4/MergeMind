@@ -37,6 +37,9 @@ export async function createCodeReview({ projectId, submittedCode, programmingLa
       error.message = typeof data?.detail === 'string'
         ? data.detail : 'Check the code size and project context fields, then try again.'
       error.validation = true
+    } else if (response.status === 404) {
+      error.message = 'The selected project no longer exists. Refresh the page and choose another project.'
+      error.validation = true
     }
     throw error
   }

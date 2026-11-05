@@ -34,11 +34,13 @@ class CodeReview(Base):
     __tablename__ = "code_reviews"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    project_id: Mapped[int] = mapped_column(ForeignKey("projects.id"))
+    # Indexed for history filtering, newest-first sorting, and issue lookups
+    # (created by migration 0002_review_indexes).
+    project_id: Mapped[int] = mapped_column(ForeignKey("projects.id"), index=True)
     submitted_code: Mapped[str] = mapped_column(Text)
     programming_language: Mapped[str] = mapped_column(String(50))
     review_status: Mapped[str] = mapped_column(String(50), default="pending")
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, index=True)
 
     risk_score: Mapped[int | None] = mapped_column(Integer, nullable=True)
     risk_level: Mapped[str | None] = mapped_column(String(20), nullable=True)
@@ -52,7 +54,7 @@ class ReviewIssue(Base):
     __tablename__ = "review_issues"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    review_id: Mapped[int] = mapped_column(ForeignKey("code_reviews.id"))
+    review_id: Mapped[int] = mapped_column(ForeignKey("code_reviews.id"), index=True)
     title: Mapped[str | None] = mapped_column(String(255), nullable=True)
     category: Mapped[str] = mapped_column(String(50))
     severity: Mapped[str] = mapped_column(String(20))
@@ -72,7 +74,8 @@ class ReviewIssue(Base):
     confidence_evidence: Mapped[dict | None] = mapped_column(JSON, nullable=True)
     
     # Tracks the developer's response to this finding. Valid values (enforced
-    # later, in Stage 9): "open", "fixed", "dismissed", "false_positive".
+    # with Developer Feedback, planned for Stage 12): "open", "fixed",
+    # "dismissed", "false_positive".
     status: Mapped[str] = mapped_column(String(30), default="open", nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 

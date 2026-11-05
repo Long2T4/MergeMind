@@ -26,6 +26,13 @@ VALID_SEVERITIES = {"low", "medium", "high"}
 CLAUDE_MODEL = "claude-haiku-4-5-20251001"
 
 MAX_PROMPT_CHARS = 250_000
+# Room for a full findings list; a response that hits this limit is cut off
+# mid-JSON, so it is treated as a failed review rather than parsed.
+MAX_OUTPUT_TOKENS = 4096
+REQUEST_TIMEOUT_SECONDS = 120
+# Keep normalized values inside the review_issues column sizes.
+MAX_TITLE_CHARS = 255
+MAX_LINE_NUMBER = 1_000_000
 
 REVIEW_PROMPT_TEMPLATE = """You are an AI code reviewer for MergeMind.
 
@@ -124,7 +131,10 @@ def review_code(
     else:
         raise ValueError(f"Unsupported AI_PROVIDER: {provider}")
 
-    return [_normalize_issue(issue) for issue in raw_issues]
+    issues = [issue for issue in map(_normalize_issue, raw_issues) if issue is not None]
+    if raw_issues and not issues:
+        raise RuntimeError("AI response contained no usable findings")
+    return issues
 
 
 def _review_with_claude(
@@ -137,7 +147,7 @@ def _review_with_claude(
             "ANTHROPIC_API_KEY is not set. Add it to backend/.env to use the AI review service."
         )
 
-    client = Anthropic(api_key=api_key)
+    client = Anthropic(api_key=api_key, timeout=REQUEST_TIMEOUT_SECONDS)
 
     prompt = REVIEW_PROMPT_TEMPLATE.format(
         categories=sorted(VALID_CATEGORIES),
@@ -146,14 +156,21 @@ def _review_with_claude(
 
     response = client.messages.create(
         model=CLAUDE_MODEL,
-        max_tokens=2000,
+        max_tokens=MAX_OUTPUT_TOKENS,
         system=prompt,
         messages=[{"role": "user", "content": build_review_payload(
             source_code, language, project_context=project_context, file_path=file_path,
         )}],
     )
 
-    response_text = response.content[0].text
+    if getattr(response, "stop_reason", None) == "max_tokens":
+        raise RuntimeError("AI response was cut off at the output limit; submit less code")
+    response_text = next(
+        (block.text for block in response.content if isinstance(getattr(block, "text", None), str)),
+        None,
+    )
+    if response_text is None:
+        raise RuntimeError("AI response contained no text")
     return _parse_issues_object(response_text)
 
 
@@ -178,30 +195,52 @@ def _parse_issues_object(text: str) -> list[dict]:
     return data["issues"]
 
 
-def _normalize_issue(issue: dict) -> dict:
-    category = issue.get("category", "code_quality")
-    if category not in VALID_CATEGORIES:
-        category = "code_quality"
+def _text(value) -> str | None:
+    """Model output is untrusted: keep strings (and plain numbers), drop anything else."""
+    if isinstance(value, bool):
+        return None
+    if isinstance(value, (int, float)):
+        value = str(value)
+    if not isinstance(value, str):
+        return None
+    return value.strip() or None
 
-    severity = issue.get("severity", "low")
-    if severity not in VALID_SEVERITIES:
-        severity = "low"
+
+def _choice(value, allowed: set[str], default: str) -> str:
+    key = (_text(value) or "").lower().replace(" ", "_").replace("-", "_")
+    return key if key in allowed else default
+
+
+def _normalize_issue(issue) -> dict | None:
+    """Coerce one model finding into the review_issues shape, or None if unusable."""
+    if not isinstance(issue, dict):
+        return None
+    title = _text(issue.get("title"))
+    explanation = _text(issue.get("explanation"))
+    if title is None and explanation is None:
+        return None
+    if title and len(title) > MAX_TITLE_CHARS:
+        title = title[:MAX_TITLE_CHARS - 1].rstrip() + "…"
 
     return {
-        "title": issue.get("title"),
-        "category": category,
-        "severity": severity,
+        "title": title,
+        "category": _choice(issue.get("category"), VALID_CATEGORIES, "code_quality"),
+        "severity": _choice(issue.get("severity"), VALID_SEVERITIES, "low"),
         "line_number": _extract_line_number(issue.get("line_reference")),
-        "explanation": issue.get("explanation", ""),
-        "why_it_matters": issue.get("why_it_matters"),
-        "suggested_fix": issue.get("suggested_fix"),
+        "explanation": explanation or "",
+        "why_it_matters": _text(issue.get("why_it_matters")),
+        "suggested_fix": _text(issue.get("suggested_fix")),
     }
 
 
 def _extract_line_number(line_reference) -> int | None:
-    if not line_reference:
+    if isinstance(line_reference, bool) or line_reference is None:
         return None
     if isinstance(line_reference, int):
-        return line_reference
-    match = re.search(r"\d+", str(line_reference))
-    return int(match.group()) if match else None
+        number = line_reference
+    else:
+        match = re.search(r"\d+", str(line_reference))
+        if not match:
+            return None
+        number = int(match.group())
+    return number if 1 <= number <= MAX_LINE_NUMBER else None
