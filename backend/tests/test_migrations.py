@@ -15,12 +15,16 @@ from alembic.autogenerate import compare_metadata
 from alembic.config import Config
 from alembic.migration import MigrationContext
 from sqlalchemy import create_engine, inspect, text
+from sqlalchemy.engine import make_url
+from sqlalchemy.exc import DBAPIError
 
 from app.database.database import Base
 from app.models import models  # noqa: F401 (registers the tables on Base)
 
 BACKEND = Path(__file__).resolve().parents[1]
 POSTGRES_URL = os.environ.get("MIGRATION_TEST_DATABASE_URL")
+HEAD = "0003_protect_version_table"
+API_ROLES = ("anon", "authenticated")
 TABLES = ("review_issues", "code_reviews", "projects", "users", "alembic_version")
 INDEXES = {"ix_code_reviews_project_id", "ix_code_reviews_created_at", "ix_review_issues_review_id"}
 
@@ -78,7 +82,7 @@ def index_names(engine, table: str) -> set[str]:
 def test_fresh_database_matches_the_models(engine):
     migrate(engine)
 
-    assert current_revision(engine) == "0002_review_indexes"
+    assert current_revision(engine) == HEAD
     assert schema_differences(engine) == []
 
 
@@ -125,7 +129,7 @@ def test_database_created_before_migrations_upgrades_cleanly(engine):
 
     migrate(engine)
 
-    assert current_revision(engine) == "0002_review_indexes"
+    assert current_revision(engine) == HEAD
     assert schema_differences(engine) == []
     with engine.connect() as connection:
         assert connection.execute(text("SELECT name FROM users")).scalar_one() == "Kept"
@@ -135,7 +139,7 @@ def test_upgrading_twice_is_a_no_op(engine):
     migrate(engine)
     migrate(engine)
 
-    assert current_revision(engine) == "0002_review_indexes"
+    assert current_revision(engine) == HEAD
 
 
 def test_index_migration_can_be_reversed_and_reapplied(engine):
@@ -155,3 +159,80 @@ def test_baseline_refuses_to_downgrade_and_keeps_the_tables(engine):
         migrate(engine, "base", downgrade=True)
 
     assert {"users", "projects", "code_reviews", "review_issues"} <= set(inspect(engine).get_table_names())
+
+
+@pytest.fixture
+def postgres(engine):
+    if engine.dialect.name != "postgresql":
+        pytest.skip("PostgreSQL-only behaviour")
+    return engine
+
+
+def _rls_enabled(connection, table: str) -> bool:
+    return connection.execute(text("SELECT relrowsecurity FROM pg_class WHERE relname = :t"), {"t": table}).scalar()
+
+
+def test_version_table_is_hidden_from_supabase_api_roles(postgres):
+    # Recreate Supabase's setup: API roles that get every new public table by default.
+    created = []
+    with postgres.begin() as connection:
+        for role in API_ROLES:
+            if not connection.execute(text("SELECT 1 FROM pg_roles WHERE rolname = :r"), {"r": role}).scalar():
+                connection.execute(text(f'CREATE ROLE "{role}" NOLOGIN'))
+                created.append(role)
+        connection.execute(text("ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON TABLES TO anon, authenticated"))
+    try:
+        migrate(postgres)
+
+        with postgres.connect() as connection:
+            assert _rls_enabled(connection, "alembic_version") is True
+            for role in API_ROLES:
+                for privilege in ("SELECT", "INSERT", "UPDATE", "DELETE"):
+                    assert connection.execute(text(
+                        f"SELECT has_table_privilege('{role}', 'public.alembic_version', '{privilege}')"
+                    )).scalar() is False
+                # Only the version table is changed; app table privileges are untouched.
+                assert connection.execute(text(
+                    f"SELECT has_table_privilege('{role}', 'public.code_reviews', 'SELECT')"
+                )).scalar() is True
+
+        with postgres.connect() as connection:
+            connection.execute(text("SET ROLE anon"))
+            with pytest.raises(DBAPIError, match="permission denied"):
+                connection.execute(text("SELECT version_num FROM alembic_version"))
+            connection.rollback()
+    finally:
+        _drop_all(postgres)
+        with postgres.begin() as connection:
+            connection.execute(text("ALTER DEFAULT PRIVILEGES IN SCHEMA public REVOKE ALL ON TABLES FROM anon, authenticated"))
+            for role in created:
+                connection.execute(text(f'DROP ROLE "{role}"'))
+
+
+def test_migrations_still_run_as_a_non_superuser_table_owner(postgres):
+    # Like Supabase's postgres role: owns the tables, is not a superuser, and
+    # cannot bypass Row Level Security. Owners are exempt unless RLS is FORCEd.
+    owner = "mergemind_migrator"
+    with postgres.begin() as connection:
+        if not connection.execute(text("SELECT 1 FROM pg_roles WHERE rolname = :r"), {"r": owner}).scalar():
+            connection.execute(text(f"CREATE ROLE {owner} LOGIN PASSWORD 'migrator' NOSUPERUSER NOBYPASSRLS"))
+        connection.execute(text(f"GRANT USAGE, CREATE ON SCHEMA public TO {owner}"))
+    owner_engine = create_engine(make_url(POSTGRES_URL).set(username=owner, password="migrator"))
+    try:
+        migrate(owner_engine)
+        assert current_revision(owner_engine) == HEAD
+        with owner_engine.connect() as connection:
+            assert _rls_enabled(connection, "alembic_version") is True
+            assert connection.execute(text("SELECT rolbypassrls FROM pg_roles WHERE rolname = current_user")).scalar() is False
+
+        # Alembic must still read and update its version table with RLS on.
+        migrate(owner_engine, "0002_review_indexes", downgrade=True)
+        assert current_revision(owner_engine) == "0002_review_indexes"
+        migrate(owner_engine)
+        assert current_revision(owner_engine) == HEAD
+    finally:
+        owner_engine.dispose()
+        _drop_all(postgres)
+        with postgres.begin() as connection:
+            connection.execute(text(f"DROP OWNED BY {owner}"))
+            connection.execute(text(f"DROP ROLE {owner}"))
