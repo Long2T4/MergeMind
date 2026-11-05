@@ -118,6 +118,13 @@ Interactive API docs are available at `http://localhost:8000/docs` while the bac
 
 `POST /code-reviews/` accepts `project_id`, `submitted_code`, `programming_language`, and optional `project_context`. See the [project-aware review guide](docs/project-aware-review.md) for the format and limits.
 
+| Response | Meaning |
+|---|---|
+| 404 | The project (or, for `POST /projects/`, the user) doesn't exist |
+| 409 | `POST /users/` was given an email that's already taken |
+| 422 | Invalid input or a request over the size limits |
+| 200 with `review_status: "failed"` | The AI review failed or its answer was unusable; the review can be retried |
+
 ## Local setup
 
 ### Requirements
@@ -140,18 +147,22 @@ Copy `backend/.env.example` to `backend/.env`. This file holds secrets and is ig
 
 ### Database
 
-In Supabase, open **Project Settings**, then **Database**, then **Connection Pooling**. Copy the Transaction mode URI (port `6543`). The direct database host can be IPv6-only and time out on many networks, even though `.env.example` shows that format.
+In Supabase, open **Project Settings**, then **Database**, then **Connection Pooling**. Copy the Transaction mode URI (port `6543`). The direct database host can be IPv6-only and time out on many networks.
 
 ```text
 DATABASE_URL=postgresql://postgres.<project_ref>:<password>@aws-0-<region>.pooler.supabase.com:6543/postgres
 ```
 
-The backend creates missing tables when it starts, but it can't add new columns to existing tables. A database created before Stages 7 and 8 needs these nullable columns added by hand:
+The schema is managed with [Alembic](https://alembic.sqlalchemy.org/) migrations in `backend/alembic/`. The backend no longer creates tables when it starts, so apply migrations before the first run and after pulling new ones:
 
-- `code_reviews`: `risk_score`, `risk_level`, `risk_breakdown`
-- `review_issues`: `confidence_score`, `confidence_level`, `confidence_evidence`
+```bash
+cd backend
+alembic upgrade head        # apply migrations
+alembic current             # show the database's version
+alembic upgrade head --sql  # preview the SQL without running it
+```
 
-Database migrations are planned for Stage 10.
+The baseline migration is safe for a database created before migrations existed. It creates only missing tables, adds only missing nullable columns (such as the Stage 7 and 8 score columns), and never drops or changes existing data. Back up a shared database before migrating it anyway.
 
 ### Backend
 
@@ -161,10 +172,13 @@ python -m venv venv
 venv\Scripts\activate       # Windows
 # source venv/bin/activate  # macOS/Linux
 pip install -r requirements.txt
+alembic upgrade head
 uvicorn app.main:app --reload
 ```
 
 The API runs at `http://localhost:8000`.
+
+If the server stops in the middle of a review, that review can stay `pending`. To find such reviews, run `python -m app.maintenance` from `backend/`. It only lists them by default; add `--apply` to mark them `failed` so they can be retried. Nothing runs automatically.
 
 ### First-run data
 
@@ -198,9 +212,16 @@ npm test
 npm run build
 ```
 
-At commit `99be62f`, 88 backend tests and 64 frontend tests passed, and the production build succeeded. Tests use in-memory SQLite and mocked AI responses, so they don't need Supabase or an Anthropic key.
+Tests use SQLite and mocked AI responses, so they don't need Supabase or an Anthropic key. Migration tests also run against PostgreSQL when `MIGRATION_TEST_DATABASE_URL` points at a disposable local database. They drop every table there and refuse any non-local address, so never point it at Supabase.
 
-There is no CI yet, and the full flow with live Supabase and Anthropic has not been formally verified.
+GitHub Actions ([`.github/workflows/ci.yml`](.github/workflows/ci.yml)) runs on every pull request and push to `main`:
+- backend tests on Ubuntu and Windows;
+- migration tests on a throwaway PostgreSQL;
+- frontend tests and the production build.
+
+CI needs no secrets.
+
+The full flow with live Supabase and Anthropic has not been formally verified yet. That is the last step of Stage 10.
 
 ## Current limitations
 
@@ -211,8 +232,7 @@ There is no CI yet, and the full flow with live Supabase and Anthropic has not b
 - **Learning page is interim:** it shows category data, not per-developer progress. A repeated category doesn't prove the same mistake, and a lower count doesn't prove improvement.
 - **AI findings can be wrong:** review them before acting on them. Line numbers come from the model and may be inaccurate.
 - **Direct imports only:** project context doesn't follow imports recursively.
-- **Known reliability gaps:** some malformed AI responses and invalid project IDs cause server errors, and such a review can stay `pending`. Stage 10 addresses these.
-- **TypeScript:** it can be selected but isn't syntax-highlighted yet.
+- **Very long reviews:** if the AI's answer reaches its output limit, the review is saved as `failed` rather than partially. Submit less code and retry.
 
 ## Project status
 
@@ -225,7 +245,7 @@ Stages 1–9 and a frontend redesign are complete. Stage 10 is the current stage
 | 7 | Confidence Scoring | Complete |
 | 8 | PR Risk Scoring | Complete |
 | 9 | Project-Aware Review (supplied snapshots) | Complete |
-| 10 | Foundation and Stability | In progress |
+| 10 | Foundation and Stability | In progress: local work done; CI run and live verification pending |
 | 11 | GitHub Pull Request Integration | Planned |
 | 12 | Developer Feedback and Learning | Planned |
 | 13 | Static Analysis Integration | Planned |

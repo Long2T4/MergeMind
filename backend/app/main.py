@@ -1,15 +1,12 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.database.database import Base, engine
 from app.models import models  # noqa: F401 (import needed to register models with Base)
 from app.routes import health, users, projects, code_reviews, review_history
 
-# Create tables if they don't exist yet. This is fine for an early-stage
-# project where the schema is still simple and changing quickly. If the
-# schema stabilizes and needs versioned, reversible changes later, that's
-# when adding Alembic migrations would be worth the extra complexity.
-Base.metadata.create_all(bind=engine)
+# The schema is managed by Alembic migrations (backend/alembic/), not created
+# at startup: create_all() can't add columns to existing tables. Before
+# running the app, apply migrations from backend/ with: alembic upgrade head
 
 app = FastAPI(title="AI Code Review Assistant API")
 

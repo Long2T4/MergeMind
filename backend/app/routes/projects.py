@@ -1,8 +1,8 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from app.database.database import get_db
-from app.models.models import Project
+from app.models.models import Project, User
 from app.models.schemas import ProjectCreate, ProjectOut
 
 router = APIRouter(prefix="/projects", tags=["projects"])
@@ -10,6 +10,8 @@ router = APIRouter(prefix="/projects", tags=["projects"])
 
 @router.post("/", response_model=ProjectOut)
 def create_project(project: ProjectCreate, db: Session = Depends(get_db)):
+    if db.get(User, project.user_id) is None:
+        raise HTTPException(status_code=404, detail="User not found")
     db_project = Project(
         user_id=project.user_id,
         name=project.name,

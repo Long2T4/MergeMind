@@ -425,7 +425,7 @@ function LearningPage() {
       )}
 
       <p className="page-footnote">
-        Fix rates, streaks and lessons need finding feedback (planned for Stage 9), so they aren&apos;t shown yet.
+        Fix rates, streaks and lessons need finding feedback (planned for Stage 12), so they aren&apos;t shown yet.
       </p>
     </div>
   )
