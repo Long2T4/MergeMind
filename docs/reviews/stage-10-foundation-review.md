@@ -29,6 +29,15 @@ Nothing has been committed, pushed or run against Supabase or Anthropic.
 - **10.2 Migrations:**
   - Alembic `0001_baseline` creates only missing tables, adds only missing nullable or defaulted columns, never drops data, and refuses to downgrade.
   - `0002_review_indexes` adds indexes on `code_reviews.project_id`, `code_reviews.created_at` and `review_issues.review_id`, skipping any that already exist.
+  - `0003_protect_version_table` (PostgreSQL only): Supabase gives its `anon` and `authenticated` API roles full access to new public tables. This migration turns on Row Level Security for `alembic_version`, without FORCE, so the owner that runs migrations is unaffected. It also removes those two roles' access to that table. App table permissions aren't changed.
+
+**Read-only Supabase inspection (2026-11-05):**
+- PostgreSQL 17.6, reached through the pooler.
+- The live schema matches the models exactly; the only differences are the three missing indexes.
+- `null_status` is 0, and `risk_breakdown` and `confidence_evidence` are `json`.
+- There's no `alembic_version` table yet. All four app tables have Row Level Security enabled with no policies.
+- Two reviews have been stuck on `pending` for more than 30 minutes. They were left untouched.
+- A read-only JSON export of all four tables (1 user, 1 project, 12 reviews, 27 issues) is saved outside the repo.
   - The models declare the same indexes.
   - `main.py` no longer calls `create_all`.
   - `alembic upgrade head --sql` previews the SQL without a database.
