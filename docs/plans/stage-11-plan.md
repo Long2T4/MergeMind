@@ -28,4 +28,4 @@ Approved 2026-11-09. Branch: `stage-11/github-pr-review` from `main` @ `aa329b9`
 - [x] **11.5 Endpoint and background review:** every error response; per-file findings with `file_name`; changed-line filtering and labels; progress; partial and total failures; background task exceptions; manual reviews unchanged.
 - [x] **11.6 Frontend:** PR tab and form, API errors, polling with cleanup, PR header, file filter, skipped-file reasons, "outside the diff" label, History PR badge.
 - [x] **11.7 Docs and review:** README, PROJECT_PLAN, Stage 11 report; `code-reviewer` and `security-reviewer`; stop for approval before commit.
-- [ ] **11.8 Live verification:** separate approval. Needs migration `0004` on Supabase, a `GITHUB_TOKEN`, a demo PR, and at most 10 Anthropic calls.
+- [x] **11.8 Live verification:** separate approval. Needs migration `0004` on Supabase, a `GITHUB_TOKEN`, a demo PR, and at most 10 Anthropic calls.

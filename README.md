@@ -236,7 +236,7 @@ GitHub Actions ([`.github/workflows/ci.yml`](.github/workflows/ci.yml)) runs on 
 
 CI needs no secrets.
 
-The full flow was verified live on 2026-11-05, against Supabase and the Anthropic API. It covered the migrations, a normal review, a review with project context, History, and the Learning data. See the [Stage 10 report](docs/reviews/stage-10-foundation-review.md#live-review-results).
+The full flow was verified live on 2026-11-05, against Supabase and the Anthropic API. It covered the migrations, a normal review, a review with project context, History, and the Learning data. See the [Stage 10 report](docs/reviews/stage-10-foundation-review.md#live-review-results). Pull request reviews were verified live on 2026-11-09 with [a demo pull request](https://github.com/Long2T4/mergemind-demo/pull/1); see the [Stage 11 report](docs/reviews/stage-11-github-pr-review-review.md#live-verification-results).
 
 ## Current limitations
 
@@ -247,13 +247,13 @@ The full flow was verified live on 2026-11-05, against Supabase and the Anthropi
 - **No static analysis:** Semgrep and Bandit aren't integrated, so confidence doesn't yet separate strong findings from weak ones.
 - **No developer feedback:** findings can't be marked fixed, dismissed or false positive.
 - **Learning page is interim:** it shows category data, not per-developer progress. A repeated category doesn't prove the same mistake, and a lower count doesn't prove improvement.
-- **AI findings can be wrong:** review them before acting on them. Line numbers come from the model and may be inaccurate.
+- **AI findings can be wrong:** review them before acting on them. Line numbers come from the model. In live tests they were off by up to 3 lines; pull request files are now sent with numbered lines, and impossible line numbers are dropped, but this hasn't been re-verified live.
 - **Direct imports only:** project context doesn't follow imports recursively.
 - **Very long reviews:** if the AI's answer reaches its output limit, the review is saved as `failed` rather than partially. Submit less code and retry.
 
 ## Project status
 
-Stages 1–10 and a frontend redesign are complete. Stage 11 is implemented and tested locally; its database migration and live verification are still to come.
+Stages 1–10 and a frontend redesign are complete. Stage 11 is complete and verified live; it closes when its pull request is merged.
 
 | Stage | Title | Status |
 |---|---|---|
@@ -263,7 +263,7 @@ Stages 1–10 and a frontend redesign are complete. Stage 11 is implemented and 
 | 8 | PR Risk Scoring | Complete |
 | 9 | Project-Aware Review (supplied snapshots) | Complete |
 | 10 | Foundation and Stability | Complete: CI, migrations, reliability fixes, live verification |
-| 11 | GitHub Pull Request Integration | In progress: implemented locally, not yet verified live |
+| 11 | GitHub Pull Request Integration | Complete: verified live on a demo PR |
 | 12 | Developer Feedback and Learning | Planned |
 | 13 | Static Analysis Integration | Planned |
 | 14 | Evaluation and Final Demo | Planned |

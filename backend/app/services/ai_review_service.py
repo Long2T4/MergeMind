@@ -4,6 +4,7 @@ import re
 
 from anthropic import Anthropic
 
+from app.services.diff_service import source_lines
 from app.services.project_context_service import ProjectContext
 
 # These match the categories defined in docs/PROJECT_PLAN.md for the future
@@ -95,11 +96,23 @@ Return only valid JSON in this structure, and nothing else:
 PULL_REQUEST_PROMPT_ADDENDUM = """
 This file comes from a pull request. changed_lines lists the line numbers in
 submitted_code that the pull request added or changed.
+- Each line of submitted_code starts with its line number and " | ". That
+  prefix is not part of the code.
+- line_reference must be the number at the start of the line you mean. Never
+  count lines yourself.
+- Do not copy the line-number prefixes into explanations or suggested fixes.
 - Focus on issues in those lines, or directly caused by them.
 - Report an issue elsewhere in the file only if it is serious (medium or high
   severity) and clearly relevant to the change. Otherwise leave it out.
-- line_reference must be a line number in submitted_code.
 """
+
+
+def number_lines(code: str) -> str:
+    """Prefix each line with its number (as GitHub numbers it), so the model
+    reads line numbers instead of counting them."""
+    lines = source_lines(code)
+    width = len(str(len(lines)))
+    return "\n".join(f"{number:>{width}} | {line}" for number, line in enumerate(lines, start=1))
 
 
 def _instructions(changed_lines) -> str:
@@ -118,7 +131,8 @@ def build_review_payload(
     data = {
         "language": language,
         "file_path": file_path,
-        "submitted_code": source_code,
+        # Pull request files are sent numbered; manual reviews are unchanged.
+        "submitted_code": number_lines(source_code) if changed_lines is not None else source_code,
         "related_files": [
             {"path": file.path, "content": file.content}
             for file in (project_context.files if project_context else ())

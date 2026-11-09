@@ -16,12 +16,12 @@ Last verified on 2026-11-09 on branch `stage-11/github-pr-review` (from `main` `
 |---|---|
 | Stages 1–10 | Complete |
 | Frontend redesign | Complete |
-| Current stage | **Stage 11: GitHub Pull Request Integration**: implemented locally (11.1–11.7); awaiting review, migration `0004` on Supabase and live verification |
-| Backend tests | 230 passed, 12 PostgreSQL-only tests skipped locally (they run in CI) |
+| Current stage | **Stage 11: GitHub Pull Request Integration**: complete and verified live; closes when PR #13 merges (after the Stage 6 owner's review) |
+| Backend tests | 245 passed, 12 PostgreSQL-only tests skipped locally (they run in CI) |
 | Frontend tests | 87 passed |
 | Production build | Passed |
 | CI | All 4 jobs pass on pull requests and on `main` |
-| Database migrations | `0001`–`0003` applied to Supabase on 2026-11-05. `0004_pull_requests` (Stage 11) is tested locally and not yet applied |
+| Database migrations | `0001`–`0003` applied to Supabase on 2026-11-05; `0004_pull_requests` applied on 2026-11-09. Schema matches the Stage 11 models |
 | Live Supabase and Anthropic verification | Passed on 2026-11-05 (reviews #13 and #14) |
 | Deployment | None; local only |
 
@@ -191,11 +191,11 @@ Stages 11, 12 and 13 can run mostly in parallel after Stage 10, if each has a cl
 | 11.1 GitHub client and URL validation | Done locally |
 | 11.2 Diff parsing and file filtering | Done locally |
 | 11.3 Context from imported files at the head commit | Done locally |
-| 11.4 Migration `0004` and models | Done locally; tested on SQLite (PostgreSQL in CI); not applied to Supabase |
+| 11.4 Migration `0004` and models | Done; PostgreSQL tests passed in CI; applied to Supabase on 2026-11-09 |
 | 11.5 Endpoint and background review | Done locally |
 | 11.6 Frontend | Done locally |
 | 11.7 Docs and review | Done locally |
-| 11.8 Live verification | Needs approval: Supabase migration, a `GITHUB_TOKEN`, a demo PR and at most 10 Anthropic calls |
+| 11.8 Live verification | Done 2026-11-09: demo PR reviewed end to end (review #15, 3 Anthropic calls). AI line numbers were off by 1–3 lines; fixed afterwards by sending numbered lines (not yet re-verified live) |
 
 ### Stage 12: Developer Feedback and Learning
 
@@ -296,9 +296,9 @@ Don't cut Stage 10, Stage 11, the evaluation, or the demo.
 | Live verification | Done (2026-11-05) | Stage 10 |
 | Database indexes | Done; applied to Supabase | Stage 10 |
 | TypeScript highlighting | Done | Stage 10 |
-| Public PR URL review | Implemented locally; not yet verified live | Stage 11 |
-| Automatic GitHub context | Implemented locally: direct imports read at the PR's head commit | Stage 11 |
-| Repository, PR and author display | Implemented locally | Stage 11 |
+| Public PR URL review | Done; verified live | Stage 11 |
+| Automatic GitHub context | Done: direct imports read at the PR's head commit | Stage 11 |
+| Repository, PR and author display | Done | Stage 11 |
 | Authentication and data isolation | Not implemented | Stage 12 |
 | Project creation UI | API exists; UI is read-only | Stage 12 |
 | Developer Feedback | `status` column only | Stage 12 |

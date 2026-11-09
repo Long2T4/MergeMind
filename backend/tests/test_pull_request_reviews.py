@@ -391,11 +391,28 @@ def test_reviews_changed_files_and_saves_per_file_findings(env, caplog):
     assert set(by_file) == {"src/app.py", "src/util.py"}
     app_call = by_file["src/app.py"]
     assert app_call["payload"]["changed_lines"] == [4, 5]
+    assert app_call["payload"]["submitted_code"].splitlines()[3] == "4 | def create(name):"
     assert [item["path"] for item in app_call["payload"]["related_files"]] == ["src/models.py"]
     assert "changed_lines" in app_call["system"]
     assert env.github.fetched("src/models.py") and not env.github.fetched("src/unrelated.py")
 
     assert TOKEN not in response.text and TOKEN not in json.dumps(review) and TOKEN not in caplog.text
+
+
+def test_line_references_past_the_end_of_the_file_are_saved_without_a_line(env):
+    AI_FINDINGS_OVERRIDE = {"src/util.py": [finding("Imaginary line", 40)]}
+    original = env.provider.messages.create.side_effect
+
+    def create(**kwargs):
+        path = json.loads(kwargs["messages"][0]["content"])["file_path"]
+        if path in AI_FINDINGS_OVERRIDE:
+            return ai_reply(AI_FINDINGS_OVERRIDE[path])
+        return original(**kwargs)
+
+    env.provider.messages.create.side_effect = create
+    review = detail(env, submit(env).json()["id"])
+    saved = next(issue for issue in review["issues"] if issue["title"] == "Imaginary line")
+    assert (saved["file_name"], saved["line_number"], saved["outside_diff"]) == ("src/util.py", None, True)
 
 
 def test_manual_reviews_still_use_the_original_prompt_and_payload(env):

@@ -16,7 +16,7 @@ from sqlalchemy.orm import Session
 from app.models.models import CodeReview, PullRequest, PullRequestFile, ReviewIssue
 from app.services.ai_review_service import review_code
 from app.services.confidence_service import calculate_confidence
-from app.services.diff_service import changed_lines, focus_findings, language_for_path, skip_reason
+from app.services.diff_service import changed_lines, focus_findings, language_for_path, line_count, skip_reason
 from app.services.github_service import FileTooLarge, GitHubClient, PullRequestRef
 from app.services.project_context_service import collect_project_context, import_candidates
 from app.services.risk_score_service import calculate_risk
@@ -222,7 +222,7 @@ def _review_file(client, ref, pull_request, changed_file, tree, budget):
         code, changed_file.language, project_context=context,
         file_path=changed_file.path, changed_lines=sorted(lines),
     )
-    return None, focus_findings(issues, lines)
+    return None, focus_findings(issues, lines, line_count=line_count(code))
 
 
 def _review_files(db: Session, review_id: int, client: GitHubClient) -> None:

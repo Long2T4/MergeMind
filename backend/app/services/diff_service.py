@@ -32,6 +32,19 @@ GENERATED_SUFFIXES = (".min.js", ".min.css", ".map", "_pb2.py", ".pb.go", ".gene
 _HUNK_HEADER = re.compile(r"@@ -\d+(?:,\d+)? \+(\d+)(?:,\d+)? @@")
 
 
+def source_lines(code: str) -> list[str]:
+    """A file's lines as GitHub numbers them: split on newlines, ignoring a
+    final trailing newline and Windows line endings."""
+    lines = code.split("\n")
+    if len(lines) > 1 and lines[-1] == "":
+        lines.pop()
+    return [line[:-1] if line.endswith("\r") else line for line in lines]
+
+
+def line_count(code: str) -> int:
+    return len(source_lines(code))
+
+
 def changed_lines(patch: str | None) -> set[int]:
     """New-file line numbers of added lines, plus where removed lines used to be."""
     lines: set[int] = set()
@@ -81,15 +94,19 @@ def skip_reason(changed_file: dict) -> str | None:
     return None
 
 
-def focus_findings(issues: list[dict], changed: set[int]) -> list[dict]:
+def focus_findings(issues: list[dict], changed: set[int], line_count: int | None = None) -> list[dict]:
     """Keep findings on changed lines; keep a few serious ones elsewhere, labeled.
 
     Returns new dicts with ``outside_diff`` set. Inside-the-diff findings keep
-    their order; outside ones follow, most severe first.
+    their order; outside ones follow, most severe first. With ``line_count``,
+    a line reference outside the file is dropped (the finding keeps no line
+    and counts as outside the diff) instead of being trusted.
     """
     inside, outside = [], []
     for issue in issues:
         line = issue.get("line_number")
+        if line_count is not None and isinstance(line, int) and not 1 <= line <= line_count:
+            issue, line = {**issue, "line_number": None}, None
         near = isinstance(line, int) and any(abs(line - number) <= LINE_TOLERANCE for number in changed)
         if near:
             inside.append({**issue, "outside_diff": False})
