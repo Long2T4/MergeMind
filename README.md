@@ -13,6 +13,7 @@ Beginners often get no code review, or feedback that points out a problem withou
 ## Current features
 
 - **Code review:** paste code or upload a file, then choose a project and language.
+- **Pull request review:** paste a public GitHub pull request URL. MergeMind reviews the changed files one by one, focuses on the changed lines, and shows the repository, title, author, commit and each file's status. The page shows progress while files are reviewed.
 - **AI findings:** each finding has a category, severity, explanation, reason it matters, suggested fix, and line reference when available.
 - **Saved results:** a results page with severity counts, category filters, flagged code, and syntax-highlighted fixes.
 - **Review history:** search, status and language filters, pagination, and an issues-per-review chart. Filters stay in the URL.
@@ -46,15 +47,18 @@ React frontend (Vite, port 5173)
         |  JSON over HTTP
         v
 FastAPI backend (port 8000)
-  routes: health, users, projects, code_reviews, review_history
+  routes: health, users, projects, code_reviews, pull_request_reviews, review_history
         |
         |-- project_context_service   selects directly imported files
+        |-- github_service            reads public pull requests (read-only)
+        |-- pr_review_service         reviews a pull request file by file
         |-- ai_review_service         builds the prompt and parses findings
         |-- confidence_service        scores each finding's evidence
         |-- risk_score_service        scores each review
         |
         +--> PostgreSQL (Supabase) through SQLAlchemy
         +--> Anthropic API
+        +--> GitHub REST API (public pull requests)
 ```
 
 ```text
@@ -90,6 +94,14 @@ docs/            Project plan, usage guides, reviews and lessons learned
 
 Selected code and context files are sent to Anthropic. Snapshots aren't saved with the review, so attach them again when retrying.
 
+### Pull request reviews
+
+1. The user submits a public `https://github.com/{owner}/{repo}/pull/{number}` URL. The backend builds its own GitHub API addresses from it and never requests the URL itself.
+2. Before saving anything, the backend checks the project, reads the pull request with its `GITHUB_TOKEN`, rejects private, missing and oversized pull requests (over 30 changed files or 3,000 changed lines), and picks the files to review: the first 10 Python, JavaScript, TypeScript, Java, C or C++ files. Removed, generated and binary files are skipped.
+3. The pull request and a `pending` review are saved, and the request returns. A background task then reviews each file at the pull request's exact head commit, with the files it directly imports as context, and saves its findings as it goes.
+4. The AI is told which lines changed. Findings on or next to changed lines are kept. A few medium or high findings elsewhere in a file (at most 2) are kept and labeled "outside the diff"; others are dropped.
+5. If a file fails, the others continue. The review is `completed` if at least one file was reviewed, and `failed` otherwise. MergeMind never posts anything to GitHub.
+
 ## Pages
 
 | Route | Page |
@@ -111,6 +123,7 @@ Interactive API docs are available at `http://localhost:8000/docs` while the bac
 | GET, POST | `/users/` | List or create users |
 | GET, POST | `/projects/` | List or create projects |
 | POST | `/code-reviews/` | Create and run a review |
+| POST | `/pull-request-reviews/` | Start a review of a public GitHub pull request (returns 202; poll the review for progress) |
 | GET | `/code-reviews/` | List all reviews with their issues |
 | GET | `/review-history/` | Paged review summaries with search and filters |
 | GET | `/review-history/stats` | Totals for the same filters |
@@ -120,8 +133,9 @@ Interactive API docs are available at `http://localhost:8000/docs` while the bac
 
 | Response | Meaning |
 |---|---|
-| 404 | The project (or, for `POST /projects/`, the user) doesn't exist |
+| 404 | The project (or, for `POST /projects/`, the user) doesn't exist, or the pull request is missing or not public |
 | 409 | `POST /users/` was given an email that's already taken |
+| 503 | `POST /pull-request-reviews/`: `GITHUB_TOKEN` isn't set, GitHub is unavailable, or GitHub's rate limit was reached |
 | 422 | Invalid input or a request over the size limits |
 | 200 with `review_status: "failed"` | The AI review failed or its answer was unusable; the review can be retried |
 
@@ -142,6 +156,7 @@ Copy `backend/.env.example` to `backend/.env`. This file holds secrets and is ig
 |---|---|---|
 | `DATABASE_URL` | Yes | PostgreSQL connection string |
 | `ANTHROPIC_API_KEY` | For AI reviews | Without it, submissions save but end as `failed` |
+| `GITHUB_TOKEN` | For pull request reviews | A fine-grained token with read-only access to public repositories only. Server-side; never sent to the browser |
 | `AI_PROVIDER` | No | Defaults to `anthropic`, the only supported provider |
 | `VITE_API_BASE_URL` | No | Frontend setting; defaults to `http://localhost:8000` |
 
@@ -212,7 +227,7 @@ npm test
 npm run build
 ```
 
-Tests use SQLite and mocked AI responses, so they don't need Supabase or an Anthropic key. Migration tests also run against PostgreSQL when `MIGRATION_TEST_DATABASE_URL` points at a disposable local database. They drop every table there and refuse any non-local address, so never point it at Supabase.
+Tests use SQLite, mocked AI responses and a fake GitHub, so they don't need Supabase, an Anthropic key or a GitHub token. Migration tests also run against PostgreSQL when `MIGRATION_TEST_DATABASE_URL` points at a disposable local database. They drop every table there and refuse any non-local address, so never point it at Supabase.
 
 GitHub Actions ([`.github/workflows/ci.yml`](.github/workflows/ci.yml)) runs on every pull request and push to `main`:
 - backend tests on Ubuntu and Windows;
@@ -226,7 +241,9 @@ The full flow was verified live on 2026-11-05, against Supabase and the Anthropi
 ## Current limitations
 
 - **No authentication:** every endpoint is open, and anyone who can reach the API can read all reviews. Don't host this version or use it with private code.
-- **No GitHub integration:** MergeMind can't read pull requests or repositories yet. Project context comes from a manually supplied JSON snapshot.
+- **AI spending:** run the backend on `localhost` only (uvicorn's default; don't add `--host 0.0.0.0`). Pull request reviews are capped server-wide at 3 at once and 20 per hour, so at most 200 AI calls an hour. Manual reviews have no cap, so set a monthly spend limit in the Anthropic console.
+- **Public pull requests only:** no private repositories, OAuth or webhooks, and nothing is posted back to GitHub. Large pull requests are rejected rather than partly reviewed, and at most 10 files are reviewed.
+- **Background reviews:** pull request reviews run inside the backend process, without a job queue. If the server stops mid-review, the review stays `pending`; `python -m app.maintenance` finds it.
 - **No static analysis:** Semgrep and Bandit aren't integrated, so confidence doesn't yet separate strong findings from weak ones.
 - **No developer feedback:** findings can't be marked fixed, dismissed or false positive.
 - **Learning page is interim:** it shows category data, not per-developer progress. A repeated category doesn't prove the same mistake, and a lower count doesn't prove improvement.
@@ -236,7 +253,7 @@ The full flow was verified live on 2026-11-05, against Supabase and the Anthropi
 
 ## Project status
 
-Stages 1–10 and a frontend redesign are complete. Stage 11 is next.
+Stages 1–10 and a frontend redesign are complete. Stage 11 is implemented and tested locally; its database migration and live verification are still to come.
 
 | Stage | Title | Status |
 |---|---|---|
@@ -246,12 +263,12 @@ Stages 1–10 and a frontend redesign are complete. Stage 11 is next.
 | 8 | PR Risk Scoring | Complete |
 | 9 | Project-Aware Review (supplied snapshots) | Complete |
 | 10 | Foundation and Stability | Complete: CI, migrations, reliability fixes, live verification |
-| 11 | GitHub Pull Request Integration | Planned |
+| 11 | GitHub Pull Request Integration | In progress: implemented locally, not yet verified live |
 | 12 | Developer Feedback and Learning | Planned |
 | 13 | Static Analysis Integration | Planned |
 | 14 | Evaluation and Final Demo | Planned |
 
-Planned work isn't available yet. It includes reviews of public GitHub PR URLs, accounts with per-user data, finding outcomes, Semgrep and Bandit evidence, and a measured evaluation of review quality. See the full [project plan](docs/PROJECT_PLAN.md).
+Planned work isn't available yet. It includes accounts with per-user data, finding outcomes, Semgrep and Bandit evidence, and a measured evaluation of review quality. See the full [project plan](docs/PROJECT_PLAN.md).
 
 ## Contributors
 

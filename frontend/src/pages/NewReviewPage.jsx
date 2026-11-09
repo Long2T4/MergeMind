@@ -1,15 +1,21 @@
 import { useEffect, useRef, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import CodeSubmitForm from '../components/CodeSubmitForm'
-import ComingSoon from '../components/ui/ComingSoon'
+import PullRequestForm from '../components/PullRequestForm'
 import { LANGUAGES } from '../constants/languages'
 import { useProjects } from '../hooks/useProjects'
-import { createCodeReview, getReviewHistoryDetail } from '../services/api'
+import { createCodeReview, createPullRequestReview, getReviewHistoryDetail } from '../services/api'
 import './pages.css'
 
-function NewReviewContent({ retryReviewId }) {
+const SOURCES = [
+  { key: 'paste', label: 'Paste code' },
+  { key: 'github', label: 'GitHub pull request' },
+]
+
+function NewReviewContent({ retryReviewId, retryPullRequest }) {
   const navigate = useNavigate()
   const { projects } = useProjects()
+  const [source, setSource] = useState(retryPullRequest ? 'github' : 'paste')
   const [initialValues, setInitialValues] = useState(retryReviewId ? null : {})
   const [retryError, setRetryError] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -42,16 +48,11 @@ function NewReviewContent({ retryReviewId }) {
     return () => { active = false }
   }, [retryReviewId])
 
-  async function handleSubmit({ code, language, projectId, projectContext }) {
+  async function run(create) {
     setIsSubmitting(true)
     setError('')
     try {
-      const review = await createCodeReview({
-        projectId,
-        submittedCode: code,
-        programmingLanguage: language,
-        ...(projectContext ? { projectContext } : {}),
-      })
+      const review = await create()
       // The AI review can be slow; don't pull the user back if they've left.
       if (mounted.current) navigate(`/reviews/${review.id}`, { state: { contextSummary: review.context_summary } })
     } catch (err) {
@@ -61,6 +62,27 @@ function NewReviewContent({ retryReviewId }) {
     }
   }
 
+  function handleSubmit({ code, language, projectId, projectContext }) {
+    return run(() => createCodeReview({
+      projectId,
+      submittedCode: code,
+      programmingLanguage: language,
+      ...(projectContext ? { projectContext } : {}),
+    }))
+  }
+
+  // Stage 11: the server checks the pull request, then reviews it in the
+  // background; the results page shows progress.
+  function handlePullRequestSubmit({ projectId, prUrl, sourceRoot }) {
+    return run(() => createPullRequestReview({ projectId, prUrl, sourceRoot }))
+  }
+
+  function chooseSource(key) {
+    if (isSubmitting) return
+    setSource(key)
+    setError('')
+  }
+
   return (
     <div className="new-review">
       <div className="page-header">
@@ -68,34 +90,62 @@ function NewReviewContent({ retryReviewId }) {
           <p className="breadcrumb">reviews / new</p>
           <h1 className="page-title">New review</h1>
           <p className="page-subtitle">
-            Paste code or upload a file. MergeMind&apos;s AI reviews it, then explains every finding.
+            {source === 'github'
+              ? 'Paste a public GitHub pull request URL. MergeMind reviews the changed files, then explains every finding.'
+              : "Paste code or upload a file. MergeMind's AI reviews it, then explains every finding."}
           </p>
         </div>
         <div className="segmented" role="group" aria-label="Review source">
-          <span className="segmented-item is-active">Paste code</span>
-          <span className="segmented-item" aria-disabled="true">
-            GitHub pull request <ComingSoon label="soon" />
-          </span>
+          {SOURCES.map((item) => (
+            <button
+              key={item.key}
+              type="button"
+              aria-pressed={source === item.key}
+              onClick={() => chooseSource(item.key)}
+              disabled={isSubmitting && source !== item.key}
+            >
+              {item.label}
+            </button>
+          ))}
         </div>
       </div>
 
-      {retryReviewId && initialValues && !retryError && (
-        <p className="notice notice-info retry-notice" role="status">
-          Retrying review #{retryReviewId}. Running it creates a new review; the original stays in your history. If it used project context, attach those files again.
-        </p>
-      )}
-      {retryError && <p className="notice notice-error retry-notice" role="alert">{retryError}</p>}
-
-      {initialValues === null ? (
-        <p className="notice" role="status">Loading the original submission…</p>
+      {source === 'github' ? (
+        <>
+          {retryPullRequest && (
+            <p className="notice notice-info retry-notice" role="status">
+              Retrying a pull request review. Running it reviews the pull request again as it is now; the original stays in your history.
+            </p>
+          )}
+          <PullRequestForm
+            projects={projects}
+            initialValues={retryPullRequest || {}}
+            onSubmit={handlePullRequestSubmit}
+            isSubmitting={isSubmitting}
+            error={error}
+          />
+        </>
       ) : (
-        <CodeSubmitForm
-          projects={projects}
-          initialValues={initialValues}
-          onSubmit={handleSubmit}
-          isSubmitting={isSubmitting}
-          error={error}
-        />
+        <>
+          {retryReviewId && initialValues && !retryError && (
+            <p className="notice notice-info retry-notice" role="status">
+              Retrying review #{retryReviewId}. Running it creates a new review; the original stays in your history. If it used project context, attach those files again.
+            </p>
+          )}
+          {retryError && <p className="notice notice-error retry-notice" role="alert">{retryError}</p>}
+
+          {initialValues === null ? (
+            <p className="notice" role="status">Loading the original submission…</p>
+          ) : (
+            <CodeSubmitForm
+              projects={projects}
+              initialValues={initialValues}
+              onSubmit={handleSubmit}
+              isSubmitting={isSubmitting}
+              error={error}
+            />
+          )}
+        </>
       )}
     </div>
   )
@@ -106,7 +156,9 @@ function NewReviewContent({ retryReviewId }) {
 function NewReviewPage() {
   const location = useLocation()
   const retryReviewId = location.state?.retryReviewId ?? null
-  return <NewReviewContent key={retryReviewId ?? 'new'} retryReviewId={retryReviewId} />
+  const retryPullRequest = location.state?.retryPullRequest ?? null
+  const key = retryReviewId ?? (retryPullRequest ? `pr-${retryPullRequest.prUrl}` : 'new')
+  return <NewReviewContent key={key} retryReviewId={retryReviewId} retryPullRequest={retryPullRequest} />
 }
 
 export default NewReviewPage

@@ -2,6 +2,7 @@ import { Link } from 'react-router-dom'
 import { LANGUAGE_SHORT } from '../constants/languages'
 import { projectLabel } from '../constants/projects'
 import { formatDateTime, pluralize } from '../lib/format'
+import { reviewRowSubtitle } from '../lib/pullRequest'
 import Icon from './layout/Icon'
 import SeverityBar from './ui/SeverityBar'
 import StatusBadge from './ui/StatusBadge'
@@ -35,7 +36,7 @@ function RecentReviewsTable({ items, projectsById }) {
                     {projectLabel(projectsById.get(review.project_id), review.project_id)}
                   </Link>
                   <code className="cell-project-sub">
-                    Review #{review.id} · {review.code_preview?.trim() || '(empty submission)'}
+                    Review #{review.id} · {reviewRowSubtitle(review)}
                   </code>
                 </div>
               </div>

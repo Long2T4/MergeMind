@@ -58,6 +58,62 @@ export function review(overrides = {}) {
   }
 }
 
+// Stage 11: a pull request review, shaped like GET /review-history/{id}.
+export function prFile(overrides = {}) {
+  return {
+    id: 1,
+    path: 'src/app.py',
+    status: 'modified',
+    additions: 2,
+    deletions: 0,
+    patch: '@@ -3,0 +4,2 @@\n+def create(name):\n+    return User(name)',
+    language: 'python',
+    review_state: 'reviewed',
+    skip_reason: null,
+    ...overrides,
+  }
+}
+
+export function pullRequest(overrides = {}) {
+  return {
+    id: 3,
+    owner: 'octo-org',
+    repo: 'sample-repo',
+    number: 7,
+    title: 'Add user creation',
+    author: 'octo-student',
+    html_url: 'https://github.com/octo-org/sample-repo/pull/7',
+    base_sha: 'b'.repeat(40),
+    head_sha: 'a'.repeat(40),
+    source_root: '',
+    changed_files_count: 3,
+    additions: 4,
+    deletions: 0,
+    created_at: '2026-11-09T10:00:00',
+    files: [
+      prFile(),
+      prFile({ id: 2, path: 'src/util.py', status: 'added', patch: '@@ -0,0 +1,2 @@\n+def add(a, b):\n+    return a - b' }),
+      prFile({ id: 3, path: 'package-lock.json', language: null, review_state: 'skipped', skip_reason: 'generated' }),
+    ],
+    ...overrides,
+  }
+}
+
+export function prReview(overrides = {}) {
+  return review({
+    id: 9,
+    pull_request_id: 3,
+    pull_request: pullRequest(),
+    submitted_code: '--- a/src/app.py\n+++ b/src/app.py\n@@ -3,0 +4,2 @@\n+def create(name):\n+    return User(name)\n',
+    issues: [
+      issue({ id: 21, title: 'Empty names reach User', category: 'logic', file_name: 'src/app.py', line_number: 5, outside_diff: false }),
+      issue({ id: 22, title: 'eval is dangerous', file_name: 'src/app.py', line_number: 9, outside_diff: true }),
+      issue({ id: 23, title: 'add subtracts', category: 'logic', severity: 'medium', file_name: 'src/util.py', line_number: 2, outside_diff: false }),
+    ],
+    ...overrides,
+  })
+}
+
 // Sensible defaults for every function in services/api (auto-mocked).
 export function mockApi(api) {
   api.getHealth.mockResolvedValue({ status: 'ok' })
@@ -67,4 +123,5 @@ export function mockApi(api) {
   api.getReviewHistoryDetail.mockResolvedValue(review())
   api.getCodeReviews.mockResolvedValue([review()])
   api.createCodeReview.mockResolvedValue(review({ id: 42 }))
+  api.createPullRequestReview.mockResolvedValue(prReview({ id: 42, review_status: 'pending' }))
 }

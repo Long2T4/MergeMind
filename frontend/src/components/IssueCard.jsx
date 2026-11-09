@@ -7,7 +7,9 @@ import Icon from './layout/Icon'
 import SeverityBadge from './SeverityBadge'
 import CodeBlock from './ui/CodeBlock'
 
-function IssueCard({ issue, code, language, defaultExpanded = false }) {
+// `snippet` overrides the flagged-code lookup (pull request findings point
+// into a changed file's diff rather than the stored code).
+function IssueCard({ issue, code, language, snippet, defaultExpanded = false }) {
   const [isExpanded, setIsExpanded] = useState(defaultExpanded)
 
   // Older issues saved before the title/why_it_matters fields existed may
@@ -15,11 +17,11 @@ function IssueCard({ issue, code, language, defaultExpanded = false }) {
   const displayTitle = issue.title || 'Code review finding'
   const severity = String(issue.severity || '').toLowerCase()
   const bodyId = `issue-${issue.id}-details`
-  const context = codeContext(code, issue.line_number)
+  const context = snippet !== undefined ? snippet : codeContext(code, issue.line_number)
   const evidence = confirmedEvidence(issue.confidence_evidence)
 
   return (
-    <li id={`issue-${issue.id}`} className={`issue-card severity-border-${severity} ${isExpanded ? 'is-open' : ''}`}>
+    <li id={`issue-${issue.id}`} className={`issue-card severity-border-${severity} ${isExpanded ? 'is-open' : ''} ${issue.file_name ? 'has-file' : ''}`}>
       <h3 className="issue-card-heading">
         <button
           type="button"
@@ -32,6 +34,8 @@ function IssueCard({ issue, code, language, defaultExpanded = false }) {
           <span className="issue-card-title">{displayTitle}</span>
           <CategoryBadge category={issue.category} />
           <span className="issue-card-meta">
+            {issue.outside_diff && <span className="tag tag-outside">Outside the diff</span>}
+            {issue.file_name && <span className="issue-card-file mono">{issue.file_name}</span>}
             <ConfidencePill issue={issue} />
             {issue.line_number != null && (
               <span className="issue-card-line">line {issue.line_number}</span>

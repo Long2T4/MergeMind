@@ -46,6 +46,31 @@ export async function createCodeReview({ projectId, submittedCode, programmingLa
   return response.json()
 }
 
+// Stage 11: start a review of a public GitHub pull request. Returns the
+// pending review (202); the files are reviewed in the background.
+export async function createPullRequestReview({ projectId, prUrl, sourceRoot = '' }) {
+  const response = await fetch(`${API_BASE_URL}/pull-request-reviews/`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ project_id: projectId, pr_url: prUrl, source_root: sourceRoot }),
+  })
+  if (!response.ok) {
+    const error = new Error(`Failed to start the pull request review (status ${response.status})`)
+    // 422 invalid or oversized, 404 missing/private or no project, 409 already
+    // running or changed, 429 too many running, 503 GitHub unavailable or rate
+    // limited: the server's explanation is user-facing.
+    if ([404, 409, 422, 429, 503].includes(response.status)) {
+      const data = await response.json().catch(() => null)
+      if (typeof data?.detail === 'string') {
+        error.message = data.detail
+        error.validation = true
+      }
+    }
+    throw error
+  }
+  return response.json()
+}
+
 export async function getCodeReviews() {
   const response = await fetch(`${API_BASE_URL}/code-reviews/`)
   if (!response.ok) {

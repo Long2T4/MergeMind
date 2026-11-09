@@ -10,18 +10,18 @@ MergeMind is a university senior capstone and resume project, not a commercial p
 
 ## Current status
 
-Last verified on 2026-11-05 at `main` `f12dbc6` (Stage 10 code merged in PR #10 and PR #11).
+Last verified on 2026-11-09 on branch `stage-11/github-pr-review` (from `main` `aa329b9`). Stage 11 is implemented locally and not yet merged.
 
 | Item | Status |
 |---|---|
 | Stages 1–10 | Complete |
 | Frontend redesign | Complete |
-| Current stage | **Stage 11: GitHub Pull Request Integration** (next) |
-| Backend tests | 109 passed, 10 PostgreSQL-only tests skipped locally (they run in CI) |
-| Frontend tests | 68 passed |
+| Current stage | **Stage 11: GitHub Pull Request Integration**: implemented locally (11.1–11.7); awaiting review, migration `0004` on Supabase and live verification |
+| Backend tests | 230 passed, 12 PostgreSQL-only tests skipped locally (they run in CI) |
+| Frontend tests | 87 passed |
 | Production build | Passed |
 | CI | All 4 jobs pass on pull requests and on `main` |
-| Database migrations | `0001`–`0003` applied to Supabase on 2026-11-05; schema matches the models |
+| Database migrations | `0001`–`0003` applied to Supabase on 2026-11-05. `0004_pull_requests` (Stage 11) is tested locally and not yet applied |
 | Live Supabase and Anthropic verification | Passed on 2026-11-05 (reviews #13 and #14) |
 | Deployment | None; local only |
 
@@ -184,6 +184,19 @@ Stages 11, 12 and 13 can run mostly in parallel after Stage 10, if each has a cl
 
 **Out of scope:** OAuth, GitHub Apps, private repositories, webhooks, posting to GitHub, running repository code.
 
+**Progress (2026-11-09):** see the [Stage 11 report](reviews/stage-11-github-pr-review-review.md) and the [Stage 11 plan](plans/stage-11-plan.md).
+
+| Task | Status |
+|---|---|
+| 11.1 GitHub client and URL validation | Done locally |
+| 11.2 Diff parsing and file filtering | Done locally |
+| 11.3 Context from imported files at the head commit | Done locally |
+| 11.4 Migration `0004` and models | Done locally; tested on SQLite (PostgreSQL in CI); not applied to Supabase |
+| 11.5 Endpoint and background review | Done locally |
+| 11.6 Frontend | Done locally |
+| 11.7 Docs and review | Done locally |
+| 11.8 Live verification | Needs approval: Supabase migration, a `GITHUB_TOKEN`, a demo PR and at most 10 Anthropic calls |
+
 ### Stage 12: Developer Feedback and Learning
 
 **Goal:** give data an owner and record what happened to each finding.
@@ -283,9 +296,9 @@ Don't cut Stage 10, Stage 11, the evaluation, or the demo.
 | Live verification | Done (2026-11-05) | Stage 10 |
 | Database indexes | Done; applied to Supabase | Stage 10 |
 | TypeScript highlighting | Done | Stage 10 |
-| Public PR URL review | Not implemented | Stage 11 |
-| Automatic GitHub context | Not implemented; manual snapshots work | Stage 11 |
-| Repository, PR and author display | Not implemented | Stage 11 |
+| Public PR URL review | Implemented locally; not yet verified live | Stage 11 |
+| Automatic GitHub context | Implemented locally: direct imports read at the PR's head commit | Stage 11 |
+| Repository, PR and author display | Implemented locally | Stage 11 |
 | Authentication and data isolation | Not implemented | Stage 12 |
 | Project creation UI | API exists; UI is read-only | Stage 12 |
 | Developer Feedback | `status` column only | Stage 12 |

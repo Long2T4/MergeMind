@@ -91,12 +91,31 @@ Return only valid JSON in this structure, and nothing else:
 """
 
 
+# Stage 11: appended to the system prompt only for pull request files.
+PULL_REQUEST_PROMPT_ADDENDUM = """
+This file comes from a pull request. changed_lines lists the line numbers in
+submitted_code that the pull request added or changed.
+- Focus on issues in those lines, or directly caused by them.
+- Report an issue elsewhere in the file only if it is serious (medium or high
+  severity) and clearly relevant to the change. Otherwise leave it out.
+- line_reference must be a line number in submitted_code.
+"""
+
+
+def _instructions(changed_lines) -> str:
+    instructions = REVIEW_PROMPT_TEMPLATE.format(
+        categories=sorted(VALID_CATEGORIES), severities=sorted(VALID_SEVERITIES),
+    )
+    return instructions + PULL_REQUEST_PROMPT_ADDENDUM if changed_lines is not None else instructions
+
+
 def build_review_payload(
     source_code: str, language: str, *,
     project_context: ProjectContext | None = None, file_path: str | None = None,
+    changed_lines: list[int] | None = None,
 ) -> str:
     """Serialize code as data, and bound the complete serialized provider input."""
-    payload = json.dumps({
+    data = {
         "language": language,
         "file_path": file_path,
         "submitted_code": source_code,
@@ -104,11 +123,11 @@ def build_review_payload(
             {"path": file.path, "content": file.content}
             for file in (project_context.files if project_context else ())
         ],
-    }, ensure_ascii=False)
-    instructions = REVIEW_PROMPT_TEMPLATE.format(
-        categories=sorted(VALID_CATEGORIES), severities=sorted(VALID_SEVERITIES),
-    )
-    if len(payload) + len(instructions) > MAX_PROMPT_CHARS:
+    }
+    if changed_lines is not None:
+        data["changed_lines"] = sorted(changed_lines)
+    payload = json.dumps(data, ensure_ascii=False)
+    if len(payload) + len(_instructions(changed_lines)) > MAX_PROMPT_CHARS:
         raise ValueError("Review input exceeds the 250000 character prompt limit; submit less code")
     return payload
 
@@ -116,17 +135,20 @@ def build_review_payload(
 def review_code(
     source_code: str, language: str, *,
     project_context: ProjectContext | None = None, file_path: str | None = None,
+    changed_lines: list[int] | None = None,
 ) -> list[dict]:
     """
     Sends code to the configured AI provider and returns a list of
     structured findings. Callers should not need to know which AI
-    provider is used under the hood.
+    provider is used under the hood. ``changed_lines`` is given only for
+    pull request files.
     """
     provider = os.getenv("AI_PROVIDER", "anthropic")
 
     if provider == "anthropic":
         raw_issues = _review_with_claude(
             source_code, language, project_context=project_context, file_path=file_path,
+            changed_lines=changed_lines,
         )
     else:
         raise ValueError(f"Unsupported AI_PROVIDER: {provider}")
@@ -140,6 +162,7 @@ def review_code(
 def _review_with_claude(
     source_code: str, language: str, *,
     project_context: ProjectContext | None = None, file_path: str | None = None,
+    changed_lines: list[int] | None = None,
 ) -> list[dict]:
     api_key = os.getenv("ANTHROPIC_API_KEY")
     if not api_key:
@@ -149,17 +172,13 @@ def _review_with_claude(
 
     client = Anthropic(api_key=api_key, timeout=REQUEST_TIMEOUT_SECONDS)
 
-    prompt = REVIEW_PROMPT_TEMPLATE.format(
-        categories=sorted(VALID_CATEGORIES),
-        severities=sorted(VALID_SEVERITIES),
-    )
-
     response = client.messages.create(
         model=CLAUDE_MODEL,
         max_tokens=MAX_OUTPUT_TOKENS,
-        system=prompt,
+        system=_instructions(changed_lines),
         messages=[{"role": "user", "content": build_review_payload(
             source_code, language, project_context=project_context, file_path=file_path,
+            changed_lines=changed_lines,
         )}],
     )
 

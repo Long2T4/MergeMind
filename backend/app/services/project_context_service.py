@@ -145,6 +145,35 @@ def _js_imports(path: str, code: str):
         yield specifier, candidates
 
 
+def _imports_for(path: str, source_code: str, root: str):
+    suffix = PurePosixPath(path).suffix
+    if suffix == ".py":
+        return _python_imports(path, source_code, root)
+    if suffix in JS_EXTENSIONS:
+        return _js_imports(path, source_code)
+    raise ValueError("Supported source files are Python, JavaScript and TypeScript")
+
+
+def import_candidates(file_path: str, source_code: str, *, source_root: str = "") -> list[str]:
+    """Every repository path collect_project_context could select, in import order.
+
+    Lets a caller fetch only the files that matter (Stage 11 reads them from
+    GitHub) instead of a whole repository. Empty for unsupported languages.
+    """
+    path = _project_path(file_path)
+    root = _project_path(source_root) if source_root else ""
+    try:
+        imports = _imports_for(path, source_code, root)
+    except ValueError:
+        return []
+    candidates = []
+    for _, paths in imports:
+        for candidate in paths:
+            if candidate != path and candidate not in candidates:
+                candidates.append(candidate)
+    return candidates
+
+
 def collect_project_context(
     file_path: str,
     source_code: str,
@@ -181,13 +210,7 @@ def collect_project_context(
             raise ValueError(f"Duplicate normalized project path: {name}")
         supplied[name] = content
 
-    suffix = PurePosixPath(path).suffix
-    if suffix == ".py":
-        imports = _python_imports(path, source_code, root)
-    elif suffix in JS_EXTENSIONS:
-        imports = _js_imports(path, source_code)
-    else:
-        raise ValueError("Supported source files are Python, JavaScript and TypeScript")
+    imports = _imports_for(path, source_code, root)
 
     selected, unresolved, omitted = [], [], []
     seen = {path}

@@ -5,6 +5,7 @@ import { projectLabel } from '../constants/projects'
 import { historySearchString, useHistoryFilters } from '../hooks/useHistoryFilters'
 import { useProjects } from '../hooks/useProjects'
 import { formatDateTime, formatShortDate, pluralize } from '../lib/format'
+import { reviewRowSubtitle } from '../lib/pullRequest'
 import { getReviewHistory, getReviewHistoryStats } from '../services/api'
 import Icon from './layout/Icon'
 import EmptyState from './ui/EmptyState'
@@ -280,7 +281,7 @@ function ReviewHistory() {
                             {projectLabel(byId.get(review.project_id), review.project_id)}
                           </span>
                           <code className="cell-project-sub">
-                            Review #{review.id} · {(review.code_preview || '').trim() || '(empty submission)'}
+                            Review #{review.id} · {reviewRowSubtitle(review)}
                           </code>
                         </div>
                       </div>
