@@ -1,6 +1,6 @@
 # Stage 11 GitHub Pull Request Integration — Review Summary
 
-**Status (2026-11-09):** tasks 11.1–11.7 are done and in [PR #13](https://github.com/Long2T4/MergeMind/pull/13) (all 4 CI jobs passed; not merged). Migration `0004` is applied to Supabase ([results](#supabase-migration-results)) and **live verification passed** ([results](#live-verification-results)). Stage 11 closes when PR #13 is merged. The approved plan is in [stage-11-plan.md](../plans/stage-11-plan.md).
+**Status (2026-11-09):** tasks 11.1–11.7 are done and in [PR #13](https://github.com/Long2T4/MergeMind/pull/13) (all 4 CI jobs passed; not merged). Migration `0004` is applied to Supabase ([results](#supabase-migration-results)) and **live verification passed** ([results](#live-verification-results)), including the [line-number fix](#line-number-fix-verified-live). Stage 11 is ready to merge. The approved plan is in [stage-11-plan.md](../plans/stage-11-plan.md).
 
 **What was implemented:**
 
@@ -45,7 +45,6 @@
   - list rows gain optional `pull_request_id`, `pr_repo`, `pr_number` and `pr_title` fields;
   - History and Home rows show `owner/repo#n · title` for PR reviews;
   - manual rows are unchanged, and every existing Stage 6 test passes without changes.
-  - **Coordinate with the Stage 6 owner (bhavesh70655) before merging.**
 
 **Tests run (2026-11-09, Windows, Python 3.12.1, Node 24):**
 
@@ -76,9 +75,8 @@
 | A repository made private after submission isn't re-checked | LOW | Left: the window is short; use a public-only token |
 
 **Unresolved issues:**
-- **AI line numbers:** in the live test, 4 of 5 findings pointed 1–3 lines too early. Fixed afterwards for pull request reviews (see [Line-number fix](#line-number-fix)), but the fix hasn't been re-verified live.
-- The live test missed one minor issue (`average([])` divides by zero in `web/format.js`).
-- The Stage 6 History changes still need review by bhavesh70655 before PR #13 merges.
+- **AI line numbers:** the first live test had 4 of 5 findings 1–3 lines early. After the [line-number fix](#line-number-fix), 5 of 6 were exact and 1 pointed at its function's first line. Model line numbers can still be imperfect.
+- The first live test missed `average([])` dividing by zero in `web/format.js`; the second run reported it.
 - PostgreSQL migration tests passed in CI on PR #13 (18 passed, 2 SQLite-only skips), including RLS and sequence revokes.
 - Background reviews run in the API process without a queue, which is fine for local use and a demo.
 
@@ -168,6 +166,27 @@ Run 2026-11-09 from PR #13's head `843254b`, with approval. It used the real app
 - out-of-range lines dropped and never placed inside the diff;
 - an end-to-end check that an imaginary line is saved without a line.
 
-**Not yet verified live.** Whether numbering fixes the model's accuracy can only be confirmed with another Anthropic run. Re-reviewing the same demo PR would take 3 calls, and needs approval.
+**Verified live:** see [Line-number fix verified live](#line-number-fix-verified-live).
 
 **Remaining risk:** a wrong line that is still inside the file is trusted. Only impossible lines are caught.
+
+### Line-number fix verified live
+
+Run 2026-11-09 from PR #13's head `81117c7`, with approval. The same demo PR (unchanged, head `0e6000d`) was reviewed again through the real UI. At most 3 Anthropic calls were allowed, with SDK retries off; 3 were used, all `end_turn`, with tokens in/out 787/296, 1025/635 and 802/462. Review #16 completed with risk 70/high, and progress showed 0, 1, 2 of 3 files done.
+
+| File | Finding | Before the fix (review #15) | After the fix (review #16) | Actual line |
+|---|---|---|---|---|
+| `app/legacy.py` | `eval()` runs arbitrary code (outside the diff) | 2 | **3** | 3 |
+| `app/users.py` | SQL injection | 10 | **12** | 12 |
+| `app/users.py` | Connection never closed | 9 | **11** | 11 |
+| `app/users.py` | `register_guest()` passes an empty name | 14 | **16** (the function's first line) | 17 (the call) |
+| `web/format.js` | Off-by-one loop | 3 | **3** | 3 |
+| `web/format.js` | Missing input validation (new; covers `average([])`) | missed | **1** (the function's first line) | 1 |
+
+**Result:**
+- Exact lines went from 1 of 5 to 5 of 6. The remaining one points at the start of the right function, one line above the call.
+- No line-number prefixes appeared in any explanation, reason or suggested fix.
+- Every in-diff flagged-code panel highlighted the code the finding describes.
+- Changed-line classification and labels were correct: `eval()` was labeled outside the diff, and the other 5 were inside.
+- History shows review #16 as `Long2T4/mergemind-demo#1 · Add user sign-up helpers`, 6 issues (4H 2M 0L). The browser console showed no errors.
+- Every row that existed before the run is unchanged (checksums); reviews #1 and #2 are still `pending`. The new rows are pull request 2 with 6 file rows, review #16 and its 6 findings.

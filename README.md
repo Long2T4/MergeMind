@@ -247,13 +247,13 @@ The full flow was verified live on 2026-11-05, against Supabase and the Anthropi
 - **No static analysis:** Semgrep and Bandit aren't integrated, so confidence doesn't yet separate strong findings from weak ones.
 - **No developer feedback:** findings can't be marked fixed, dismissed or false positive.
 - **Learning page is interim:** it shows category data, not per-developer progress. A repeated category doesn't prove the same mistake, and a lower count doesn't prove improvement.
-- **AI findings can be wrong:** review them before acting on them. Line numbers come from the model. In live tests they were off by up to 3 lines; pull request files are now sent with numbered lines, and impossible line numbers are dropped, but this hasn't been re-verified live.
+- **AI findings can be wrong:** review them before acting on them. Line numbers come from the model and can be imperfect. Pull request files are sent with numbered lines, and impossible line numbers are dropped; in the live test this took exact lines from 1 of 5 to 5 of 6.
 - **Direct imports only:** project context doesn't follow imports recursively.
 - **Very long reviews:** if the AI's answer reaches its output limit, the review is saved as `failed` rather than partially. Submit less code and retry.
 
 ## Project status
 
-Stages 1–10 and a frontend redesign are complete. Stage 11 is complete and verified live; it closes when its pull request is merged.
+Stages 1–10 and a frontend redesign are complete. Stage 11 is complete and verified live, and its pull request is ready to merge.
 
 | Stage | Title | Status |
 |---|---|---|

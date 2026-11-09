@@ -16,7 +16,7 @@ Last verified on 2026-11-09 on branch `stage-11/github-pr-review` (from `main` `
 |---|---|
 | Stages 1–10 | Complete |
 | Frontend redesign | Complete |
-| Current stage | **Stage 11: GitHub Pull Request Integration**: complete and verified live; closes when PR #13 merges (after the Stage 6 owner's review) |
+| Current stage | **Stage 11: GitHub Pull Request Integration**: complete and verified live; ready to merge (PR #13) |
 | Backend tests | 245 passed, 12 PostgreSQL-only tests skipped locally (they run in CI) |
 | Frontend tests | 87 passed |
 | Production build | Passed |
@@ -195,7 +195,7 @@ Stages 11, 12 and 13 can run mostly in parallel after Stage 10, if each has a cl
 | 11.5 Endpoint and background review | Done locally |
 | 11.6 Frontend | Done locally |
 | 11.7 Docs and review | Done locally |
-| 11.8 Live verification | Done 2026-11-09: demo PR reviewed end to end (review #15, 3 Anthropic calls). AI line numbers were off by 1–3 lines; fixed afterwards by sending numbered lines (not yet re-verified live) |
+| 11.8 Live verification | Done 2026-11-09: demo PR reviewed end to end (review #15, 3 Anthropic calls). AI line numbers were off by 1–3 lines; after sending numbered lines, 5 of 6 were exact in a second run (review #16) |
 
 ### Stage 12: Developer Feedback and Learning
 
