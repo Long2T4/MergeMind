@@ -595,3 +595,38 @@
 .context-fields input[type='file'] { max-width: 100%; }
 .context-summary { margin: 16px 0; overflow-wrap: anywhere; }
 .context-summary p, .context-summary ul { margin-top: 10px; }
+
+/* Stage 11: GitHub pull request reviews. */
+.pr-form { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
+.pr-limits { display: flex; flex-direction: column; gap: 8px; margin-top: 12px; padding-left: 18px; color: var(--text-muted); font-size: 14px; }
+.pr-header { display: flex; flex-direction: column; gap: 10px; min-width: 0; margin-top: 16px; }
+.pr-eyebrow { display: flex; align-items: center; gap: 8px; overflow-wrap: anywhere; }
+/* Repository names are case-sensitive: don't uppercase them like other eyebrows. */
+.pr-eyebrow a, .pr-eyebrow span { text-transform: none; letter-spacing: 0; }
+.pr-title { font-family: var(--font-display); font-size: 20px; font-weight: 600; overflow-wrap: anywhere; }
+.pr-meta { display: flex; flex-wrap: wrap; gap: 8px 28px; }
+.pr-meta div { display: flex; flex-direction: column; gap: 2px; }
+.pr-meta dt { font-size: 12px; color: var(--text-faint); }
+.pr-meta dd { margin: 0; color: var(--text); overflow-wrap: anywhere; }
+.pr-progress { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; color: var(--text-muted); }
+.pr-progress progress { flex: 1; min-width: 120px; height: 6px; accent-color: var(--accent); }
+/* Pull request findings carry more labels: let them move under the title instead of squeezing it. */
+.issue-card.has-file .issue-card-header { flex-wrap: wrap; }
+.issue-card.has-file .issue-card-title { flex: 1 1 200px; }
+.issue-card-file { max-width: 220px; overflow: hidden; font-family: var(--font-mono); font-size: 12px; color: var(--text-muted); text-overflow: ellipsis; white-space: nowrap; }
+.tag-outside { border-color: var(--medium-border); background: var(--medium-soft); color: var(--medium-text); white-space: nowrap; }
+.chip.mono { font-family: var(--font-mono); font-size: 12px; overflow-wrap: anywhere; }
+.changed-files { min-width: 0; margin-top: 16px; }
+.changed-file-list { display: flex; flex-direction: column; margin-top: 12px; list-style: none; }
+.changed-file { border-top: 1px solid var(--border); }
+.changed-file summary { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 14px; padding: 10px 0; cursor: pointer; }
+.changed-file-path { flex: 1 1 220px; min-width: 0; overflow-wrap: anywhere; color: var(--text); }
+.changed-file-state, .changed-file-count, .changed-file-lines { font-size: 13px; color: var(--text-muted); white-space: nowrap; }
+.changed-file.state-reviewed .changed-file-state { color: var(--success); }
+.changed-file.state-failed .changed-file-state { color: var(--high-text); }
+.changed-file .code-block { margin-bottom: 12px; }
+.changed-file-nodiff { padding-bottom: 12px; }
+
+@media (max-width: 640px) {
+  .issue-card-file { max-width: 100%; }
+}

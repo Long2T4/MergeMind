@@ -27,3 +27,9 @@ def get_db():
         yield db
     finally:
         db.close()
+
+
+def get_session_factory():
+    """FastAPI dependency for background work, which must open its own sessions
+    (the request's session is closed once the response is sent)."""
+    return SessionLocal

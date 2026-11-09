@@ -23,9 +23,11 @@ from app.models import models  # noqa: F401 (registers the tables on Base)
 
 BACKEND = Path(__file__).resolve().parents[1]
 POSTGRES_URL = os.environ.get("MIGRATION_TEST_DATABASE_URL")
-HEAD = "0003_protect_version_table"
+HEAD = "0004_pull_requests"
 API_ROLES = ("anon", "authenticated")
-TABLES = ("review_issues", "code_reviews", "projects", "users", "alembic_version")
+TABLES = ("review_issues", "code_reviews", "pull_request_files", "pull_requests", "projects", "users",
+          "alembic_version")
+PR_TABLES = ("pull_requests", "pull_request_files")
 INDEXES = {"ix_code_reviews_project_id", "ix_code_reviews_created_at", "ix_review_issues_review_id"}
 
 
@@ -161,6 +163,53 @@ def test_baseline_refuses_to_downgrade_and_keeps_the_tables(engine):
     assert {"users", "projects", "code_reviews", "review_issues"} <= set(inspect(engine).get_table_names())
 
 
+def _seed_stage_10_review(engine) -> None:
+    with engine.begin() as connection:
+        for statement in (
+            "INSERT INTO users (id, name, email, created_at) VALUES (1, 'Kept', 'kept@example.com', '2026-11-05 10:00:00')",
+            "INSERT INTO projects (id, user_id, name, created_at) VALUES (1, 1, 'Kept', '2026-11-05 10:00:00')",
+            "INSERT INTO code_reviews (id, project_id, submitted_code, programming_language, review_status, "
+            "created_at, risk_score) VALUES (1, 1, 'print(1)', 'python', 'completed', '2026-11-05 10:00:00', 70)",
+            "INSERT INTO review_issues (id, review_id, category, severity, explanation, created_at) "
+            "VALUES (1, 1, 'logic', 'high', 'Kept finding', '2026-11-05 10:00:00')",
+        ):
+            connection.execute(text(statement))
+
+
+def test_stage_10_database_gains_pull_request_tables_and_keeps_manual_reviews(engine):
+    migrate(engine, "0003_protect_version_table")
+    _seed_stage_10_review(engine)
+
+    migrate(engine)
+
+    assert current_revision(engine) == HEAD
+    assert schema_differences(engine) == []
+    assert set(PR_TABLES) <= set(inspect(engine).get_table_names())
+    assert "ix_code_reviews_pull_request_id" in index_names(engine, "code_reviews")
+    assert INDEXES <= index_names(engine, "code_reviews") | index_names(engine, "review_issues")
+    with engine.connect() as connection:
+        row = connection.execute(text(
+            "SELECT submitted_code, risk_score, pull_request_id, explanation, outside_diff, status "
+            "FROM code_reviews JOIN review_issues ON review_issues.review_id = code_reviews.id")).one()
+    assert tuple(row) == ("print(1)", 70, None, "Kept finding", None, "open")
+
+
+def test_pull_request_migration_can_be_reversed_without_losing_manual_reviews(engine):
+    migrate(engine)
+    _seed_stage_10_review(engine)
+
+    migrate(engine, "0003_protect_version_table", downgrade=True)
+    assert not set(PR_TABLES) & set(inspect(engine).get_table_names())
+    assert "pull_request_id" not in {c["name"] for c in inspect(engine).get_columns("code_reviews")}
+    assert "outside_diff" not in {c["name"] for c in inspect(engine).get_columns("review_issues")}
+    assert INDEXES <= index_names(engine, "code_reviews") | index_names(engine, "review_issues")
+    with engine.connect() as connection:
+        assert connection.execute(text("SELECT explanation FROM review_issues")).scalar_one() == "Kept finding"
+
+    migrate(engine)
+    assert schema_differences(engine) == []
+
+
 @pytest.fixture
 def postgres(engine):
     if engine.dialect.name != "postgresql":
@@ -181,6 +230,7 @@ def test_version_table_is_hidden_from_supabase_api_roles(postgres):
                 connection.execute(text(f'CREATE ROLE "{role}" NOLOGIN'))
                 created.append(role)
         connection.execute(text("ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON TABLES TO anon, authenticated"))
+        connection.execute(text("ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON SEQUENCES TO anon, authenticated"))
     try:
         migrate(postgres)
 
@@ -191,10 +241,20 @@ def test_version_table_is_hidden_from_supabase_api_roles(postgres):
                     assert connection.execute(text(
                         f"SELECT has_table_privilege('{role}', 'public.alembic_version', '{privilege}')"
                     )).scalar() is False
-                # Only the version table is changed; app table privileges are untouched.
+                # Stage 11's tables get the same protection as the version table.
+                for table in PR_TABLES:
+                    assert connection.execute(text(
+                        f"SELECT has_table_privilege('{role}', 'public.{table}', 'SELECT')"
+                    )).scalar() is False
+                    assert connection.execute(text(
+                        f"SELECT has_sequence_privilege('{role}', pg_get_serial_sequence('public.{table}', 'id'), 'USAGE')"
+                    )).scalar() is False
+                # Existing app table privileges are untouched.
                 assert connection.execute(text(
                     f"SELECT has_table_privilege('{role}', 'public.code_reviews', 'SELECT')"
                 )).scalar() is True
+            for table in PR_TABLES:
+                assert _rls_enabled(connection, table) is True
 
         with postgres.connect() as connection:
             connection.execute(text("SET ROLE anon"))
@@ -205,6 +265,7 @@ def test_version_table_is_hidden_from_supabase_api_roles(postgres):
         _drop_all(postgres)
         with postgres.begin() as connection:
             connection.execute(text("ALTER DEFAULT PRIVILEGES IN SCHEMA public REVOKE ALL ON TABLES FROM anon, authenticated"))
+            connection.execute(text("ALTER DEFAULT PRIVILEGES IN SCHEMA public REVOKE ALL ON SEQUENCES FROM anon, authenticated"))
             for role in created:
                 connection.execute(text(f'DROP ROLE "{role}"'))
 

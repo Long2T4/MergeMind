@@ -9,6 +9,9 @@ import { useProjects } from '../hooks/useProjects'
 import { getReviewHistoryDetail } from '../services/api'
 import './pages.css'
 
+const POLL_INTERVAL_MS = 3000
+const MAX_POLLS = 200
+
 function ResultsSkeleton() {
   return (
     <div className="results-skeleton" role="status" aria-label="Loading review...">
@@ -28,11 +31,13 @@ function ReviewResultsPage() {
   const [review, setReview] = useState(null)
   const [error, setError] = useState(null)
   const [attempt, setAttempt] = useState(0)
+  const [polls, setPolls] = useState(0)
   const validId = /^\d+$/.test(reviewId) && Number(reviewId) > 0
 
   useEffect(() => {
     if (!validId) return undefined
     let active = true
+    setPolls(0)
     setReview(null)
     setError(null)
     getReviewHistoryDetail(reviewId)
@@ -42,6 +47,28 @@ function ReviewResultsPage() {
       })
     return () => { active = false }
   }, [reviewId, attempt, validId])
+
+  // Stage 11: a pull request review runs in the background. Check again
+  // while it's pending; stop when it finishes, the page is left, or after
+  // about ten minutes. Manual reviews aren't re-checked.
+  // The poll count drives the next check, so it re-arms even when a response
+  // is unchanged or a check fails.
+  const isPendingPullRequest = review?.review_status === 'pending' && Boolean(review.pull_request)
+  const pollingStopped = isPendingPullRequest && polls >= MAX_POLLS
+  useEffect(() => {
+    if (!isPendingPullRequest || polls >= MAX_POLLS) return undefined
+    let active = true
+    const timer = setTimeout(() => {
+      getReviewHistoryDetail(reviewId)
+        .then((data) => { if (active) setReview(data) })
+        .catch(() => {}) // a failed check is retried on the next tick
+        .finally(() => { if (active) setPolls((count) => count + 1) })
+    }, POLL_INTERVAL_MS)
+    return () => {
+      active = false
+      clearTimeout(timer)
+    }
+  }, [isPendingPullRequest, polls, reviewId])
 
   // Only follow in-app paths ("/..." but not "//host"), never external URLs.
   const from = location.state?.from
@@ -76,6 +103,12 @@ function ReviewResultsPage() {
     content = (
       <>
         <ContextSummary summary={location.state?.contextSummary} failed={review.review_status === 'failed'} />
+        {pollingStopped && (
+          <p className="notice notice-info" role="status">
+            This review is taking longer than expected, so the page stopped checking for updates. Refresh it later.
+            If it stays pending, the server may have restarted during the review.
+          </p>
+        )}
         <ReviewDetail review={review} projectName={projectLabel(byId.get(review.project_id), review.project_id)} />
       </>
     )

@@ -10,7 +10,7 @@ from sqlalchemy import case, func, or_, select
 from sqlalchemy.orm import Session, selectinload
 
 from app.database.database import get_db
-from app.models.models import CodeReview, ReviewIssue
+from app.models.models import CodeReview, PullRequest, ReviewIssue
 from app.models.schemas import CodeReviewOut
 
 router = APIRouter(prefix="/review-history", tags=["review-history"])
@@ -30,6 +30,11 @@ class ReviewHistoryItem(BaseModel):
     high_severity_count: int
     medium_severity_count: int
     low_severity_count: int
+    # Stage 11: set only for pull request reviews.
+    pull_request_id: int | None = None
+    pr_repo: str | None = None
+    pr_number: int | None = None
+    pr_title: str | None = None
 
 
 class ReviewHistoryPage(BaseModel):
@@ -96,6 +101,7 @@ def list_review_history(
             CodeReview.review_status,
             CodeReview.created_at,
             func.substr(CodeReview.submitted_code, 1, CODE_PREVIEW_LENGTH).label("code_preview"),
+            CodeReview.pull_request_id,
         )
         .order_by(CodeReview.created_at.desc(), CodeReview.id.desc())
         .offset(offset)
@@ -123,9 +129,16 @@ def list_review_history(
             )
         }
 
+    # Stage 11: pull request details for this page's PR reviews only.
+    pr_ids = [row.pull_request_id for row in rows if row.pull_request_id is not None]
+    pull_requests = (
+        {pr.id: pr for pr in db.query(PullRequest).filter(PullRequest.id.in_(pr_ids))} if pr_ids else {}
+    )
+
     items = []
     for row in rows:
         issue_count, high_count, medium_count, low_count = counts.get(row.id, (0, 0, 0, 0))
+        pr = pull_requests.get(row.pull_request_id)
         items.append(ReviewHistoryItem(
             id=row.id,
             project_id=row.project_id,
@@ -137,6 +150,10 @@ def list_review_history(
             high_severity_count=high_count,
             medium_severity_count=medium_count,
             low_severity_count=low_count,
+            pull_request_id=row.pull_request_id,
+            pr_repo=f"{pr.owner}/{pr.repo}" if pr else None,
+            pr_number=pr.number if pr else None,
+            pr_title=pr.title if pr else None,
         ))
     return ReviewHistoryPage(items=items, total=total, limit=limit, offset=offset)
 
@@ -179,7 +196,10 @@ def get_review_history_detail(
 ):
     review = (
         db.query(CodeReview)
-        .options(selectinload(CodeReview.issues))
+        .options(
+            selectinload(CodeReview.issues),
+            selectinload(CodeReview.pull_request).selectinload(PullRequest.files),
+        )
         .filter(CodeReview.id == review_id)
         .first()
     )

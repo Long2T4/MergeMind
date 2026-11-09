@@ -45,7 +45,9 @@ function ReviewSummary({ review, projectName }) {
           <StatusBadge status={review.review_status} />
         </div>
         <p className="results-meta">
-          Review #{review.id} · {languageLabel(review.programming_language)} · {pluralize(lines, 'line')} ·{' '}
+          Review #{review.id} · {review.pull_request
+            ? `Pull request · ${pluralize(review.pull_request.changed_files_count, 'changed file')}`
+            : `${languageLabel(review.programming_language)} · ${pluralize(lines, 'line')}`} ·{' '}
           {formatLongDate(review.created_at)}
         </p>
         <p className="results-summary">{summarySentence(review, counts)}</p>

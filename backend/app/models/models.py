@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from sqlalchemy import ForeignKey, Integer, String, Text, DateTime, JSON
+from sqlalchemy import Boolean, ForeignKey, Integer, String, Text, DateTime, JSON
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database.database import Base
@@ -46,8 +46,59 @@ class CodeReview(Base):
     risk_level: Mapped[str | None] = mapped_column(String(20), nullable=True)
     risk_breakdown: Mapped[dict | None] = mapped_column(JSON, nullable=True)
 
+    # Stage 11: set only for reviews of a GitHub pull request.
+    pull_request_id: Mapped[int | None] = mapped_column(
+        ForeignKey("pull_requests.id"), nullable=True, index=True
+    )
+
     project: Mapped["Project"] = relationship(back_populates="code_reviews")
     issues: Mapped[list["ReviewIssue"]] = relationship(back_populates="review")
+    pull_request: Mapped["PullRequest | None"] = relationship()
+
+
+class PullRequest(Base):
+    """Stage 11: a pull request's details as they were when it was reviewed."""
+    __tablename__ = "pull_requests"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    owner: Mapped[str] = mapped_column(String(100))
+    repo: Mapped[str] = mapped_column(String(100))
+    number: Mapped[int] = mapped_column(Integer)
+    title: Mapped[str] = mapped_column(String(500))
+    author: Mapped[str] = mapped_column(String(255))
+    html_url: Mapped[str] = mapped_column(String(300))
+    base_sha: Mapped[str] = mapped_column(String(64))
+    head_sha: Mapped[str] = mapped_column(String(64))
+    source_root: Mapped[str] = mapped_column(String(240), default="")
+    changed_files_count: Mapped[int] = mapped_column(Integer)
+    additions: Mapped[int] = mapped_column(Integer)
+    deletions: Mapped[int] = mapped_column(Integer)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+    files: Mapped[list["PullRequestFile"]] = relationship(
+        back_populates="pull_request", order_by="PullRequestFile.id"
+    )
+
+
+class PullRequestFile(Base):
+    """Stage 11: one changed file and whether it was reviewed."""
+    __tablename__ = "pull_request_files"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    pull_request_id: Mapped[int] = mapped_column(ForeignKey("pull_requests.id"), index=True)
+    path: Mapped[str] = mapped_column(String(500))
+    status: Mapped[str] = mapped_column(String(20))
+    additions: Mapped[int] = mapped_column(Integer)
+    deletions: Mapped[int] = mapped_column(Integer)
+    patch: Mapped[str | None] = mapped_column(Text, nullable=True)
+    language: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    # "pending", "reviewed", "skipped" or "failed".
+    review_state: Mapped[str] = mapped_column(String(20), default="pending")
+    # Set when skipped: "removed", "generated", "binary", "too_large",
+    # "unsupported" or "file_limit".
+    skip_reason: Mapped[str | None] = mapped_column(String(30), nullable=True)
+
+    pull_request: Mapped["PullRequest"] = relationship(back_populates="files")
 
 
 class ReviewIssue(Base):
@@ -77,6 +128,10 @@ class ReviewIssue(Base):
     # with Developer Feedback, planned for Stage 12): "open", "fixed",
     # "dismissed", "false_positive".
     status: Mapped[str] = mapped_column(String(30), default="open", nullable=False)
+
+    # Stage 11: for pull request reviews, True if the finding is not on a
+    # changed line. Empty for manual reviews.
+    outside_diff: Mapped[bool | None] = mapped_column(Boolean, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 
     review: Mapped["CodeReview"] = relationship(back_populates="issues")

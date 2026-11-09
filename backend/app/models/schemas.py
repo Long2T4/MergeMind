@@ -79,7 +79,52 @@ class ReviewIssueOut(BaseModel):
     confidence_level: str | None = None
     confidence_evidence: dict | None = None
     status: str
+    # Stage 11: True when a pull request finding is not on a changed line.
+    outside_diff: bool | None = None
     created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class PullRequestReviewCreate(BaseModel):
+    project_id: int
+    pr_url: str = Field(min_length=1, max_length=300)
+    # Python import root inside the repository, for example "backend".
+    source_root: str = Field(default="", max_length=240)
+
+
+class PullRequestFileOut(BaseModel):
+    id: int
+    path: str
+    status: str
+    additions: int
+    deletions: int
+    patch: str | None
+    language: str | None
+    review_state: str
+    skip_reason: str | None
+
+    class Config:
+        from_attributes = True
+
+
+class PullRequestOut(BaseModel):
+    id: int
+    owner: str
+    repo: str
+    number: int
+    title: str
+    author: str
+    html_url: str
+    base_sha: str
+    head_sha: str
+    source_root: str
+    changed_files_count: int
+    additions: int
+    deletions: int
+    created_at: datetime
+    files: list[PullRequestFileOut] = Field(default_factory=list)
 
     class Config:
         from_attributes = True
@@ -98,6 +143,9 @@ class CodeReviewOut(BaseModel):
     issues: list[ReviewIssueOut] = Field(default_factory=list)
     # Only the POST response includes context diagnostics; snapshots are not stored.
     context_summary: ContextSummary | None = None
+    # Stage 11: set only for pull request reviews.
+    pull_request_id: int | None = None
+    pull_request: PullRequestOut | None = None
 
     class Config:
         from_attributes = True
