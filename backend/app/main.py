@@ -10,6 +10,10 @@ from app.routes import health, users, projects, code_reviews, pull_request_revie
 
 app = FastAPI(title="AI Code Review Assistant API")
 
+
+# Stage 12 (install before CORS so browser preflights/errors retain CORS headers)
+from app.stage12.bootstrap import install_stage12
+install_stage12(app)
 # Allow the Vite dev server to call this API during local development.
 app.add_middleware(
     CORSMiddleware,

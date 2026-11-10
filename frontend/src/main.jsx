@@ -1,3 +1,4 @@
+import Stage12Shell from './stage12/Stage12Shell'
 import React from 'react'
 import ReactDOM from 'react-dom/client'
 import { BrowserRouter } from 'react-router-dom'
@@ -9,7 +10,7 @@ import { ROUTER_FUTURE } from './routerFuture'
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>
     <BrowserRouter future={ROUTER_FUTURE}>
-      <App />
+      <Stage12Shell><App /></Stage12Shell>
     </BrowserRouter>
   </React.StrictMode>,
 )
