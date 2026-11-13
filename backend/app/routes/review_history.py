@@ -12,6 +12,7 @@ from sqlalchemy.orm import Session, selectinload
 from app.database.database import get_db
 from app.models.models import CodeReview, PullRequest, ReviewIssue
 from app.models.schemas import CodeReviewOut
+from app.stage12.security import CurrentUser, get_current_user, owned_project_ids
 
 router = APIRouter(prefix="/review-history", tags=["review-history"])
 
@@ -52,8 +53,9 @@ class ReviewHistoryStats(BaseModel):
     high_severity_issues: int
 
 
-def _review_filters(q: str, language: str, status: str, project_id: int | None) -> list:
-    conditions = []
+def _review_filters(owner_id: int, q: str, language: str, status: str, project_id: int | None) -> list:
+    # Stage 12: only reviews in the signed-in user's projects.
+    conditions = [CodeReview.project_id.in_(owned_project_ids(owner_id))]
     if project_id is not None:
         conditions.append(CodeReview.project_id == project_id)
     if language:
@@ -89,9 +91,10 @@ def list_review_history(
     limit: int = Query(10, ge=1, le=50),
     offset: int = Query(0, ge=0),
     db: Session = Depends(get_db),
+    user: CurrentUser = Depends(get_current_user),
 ):
     # Use the same CodeReview + ReviewIssue models already used by Stage 3-5.
-    query = db.query(CodeReview).filter(*_review_filters(q, language, status, project_id))
+    query = db.query(CodeReview).filter(*_review_filters(user.id, q, language, status, project_id))
     total = query.count()
     rows = (
         query.with_entities(
@@ -165,8 +168,9 @@ def review_history_stats(
     status: str = Query("", max_length=50),
     project_id: int | None = Query(None, ge=1),
     db: Session = Depends(get_db),
+    user: CurrentUser = Depends(get_current_user),
 ):
-    conditions = _review_filters(q, language, status, project_id)
+    conditions = _review_filters(user.id, q, language, status, project_id)
     total_reviews, completed_reviews = (
         db.query(
             func.count(CodeReview.id),
@@ -193,6 +197,7 @@ def review_history_stats(
 def get_review_history_detail(
     review_id: int = Path(..., ge=1),
     db: Session = Depends(get_db),
+    user: CurrentUser = Depends(get_current_user),
 ):
     review = (
         db.query(CodeReview)
@@ -200,7 +205,8 @@ def get_review_history_detail(
             selectinload(CodeReview.issues),
             selectinload(CodeReview.pull_request).selectinload(PullRequest.files),
         )
-        .filter(CodeReview.id == review_id)
+        # Stage 12: another user's review gets the same 404 as a missing one.
+        .filter(CodeReview.id == review_id, CodeReview.project_id.in_(owned_project_ids(user.id)))
         .first()
     )
     if review is None:

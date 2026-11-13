@@ -1,10 +1,15 @@
-"""Reject anonymous access before legacy routes execute; scope ORM sessions per request."""
+"""Reject anonymous access before any route runs.
+
+Authentication only: the verified token claims are stored on the request, and
+routes resolve the user and check ownership through get_current_user. No
+database work or user context lives here, so background tasks don't depend
+on it.
+"""
 from __future__ import annotations
 from fastapi import HTTPException, Request
 from fastapi.responses import JSONResponse
 from starlette.middleware.base import BaseHTTPMiddleware
-from app.database.database import SessionLocal
-from app.stage12.security import owner_context, resolve_user, verify_token
+from app.stage12.security import verify_token
 
 PUBLIC = {'/health', '/health/', '/openapi.json', '/docs', '/docs/oauth2-redirect', '/redoc'}
 
@@ -20,14 +25,7 @@ class Stage12AuthMiddleware(BaseHTTPMiddleware):
         if not bearer.startswith('Bearer ') or not bearer[7:].strip():
             return JSONResponse({'detail': 'Authentication required'}, status_code=401)
         try:
-            claims = verify_token(bearer[7:].strip())
-            with SessionLocal() as db:
-                user = resolve_user(db, claims)
-                request.state.stage12_user = {'id': user.id, 'name': user.name, 'email': user.email}
+            request.state.stage12_claims = verify_token(bearer[7:].strip())
         except HTTPException as exc:
             return JSONResponse({'detail': exc.detail}, status_code=exc.status_code)
-        owner_token = owner_context.set(request.state.stage12_user['id'])
-        try:
-            return await call_next(request)
-        finally:
-            owner_context.reset(owner_token)
+        return await call_next(request)

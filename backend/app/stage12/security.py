@@ -1,25 +1,26 @@
-"""Stage 12 security boundary. Server-side Supabase asymmetric JWT verification.
+"""Stage 12 security boundary: Supabase sign-in and ownership checks.
 
-Legacy user-data routes are protected by both authentication middleware and
-SQLAlchemy ORM ownership criteria. Any code that uses raw SQL must be audited
-separately before public deployment.
+The middleware verifies the Supabase access token (asymmetric JWT) on every
+request. Routes then depend on get_current_user, which maps the verified
+token to a local user, and check ownership explicitly in their queries:
+a user's data is everything under a project with their user_id. Background
+work (Stage 11 pull request reviews) runs without any request context.
 """
 from __future__ import annotations
 
-from contextvars import ContextVar
+from dataclasses import dataclass
 from functools import lru_cache
 import os
 from urllib.parse import urlsplit
 from uuid import UUID
 
 import jwt
-from fastapi import HTTPException
+from fastapi import Depends, HTTPException, Request
 from jwt import PyJWKClient
-from sqlalchemy import event, select
-from sqlalchemy.orm import Session, with_loader_criteria
+from sqlalchemy import select
+from sqlalchemy.orm import Session
 
-# No user = no ownership filter, used only inside internal auth identity resolution.
-owner_context: ContextVar[int | None] = ContextVar('stage12_owner', default=None)
+from app.database.database import get_db
 
 
 def _issuer() -> str:
@@ -96,109 +97,29 @@ def resolve_user(db: Session, claims: dict):
     return user
 
 
-def install_ownership_filters():
-    """Apply row ownership to all ORM SELECTs, including count/aggregation queries.
+@dataclass(frozen=True)
+class CurrentUser:
+    id: int
+    name: str
+    email: str
 
-    This covers mapped entities with user_id, project_id or review_id foreign keys;
-    the User table is special-cased. Extra Stage 13 mappings are discovered at
-    query time, so no static-analysis model fields are modified.
-    """
-    if getattr(Session, '_stage12_filters_installed', False):
-        return
 
-    @event.listens_for(Session, 'do_orm_execute')
-    def _scope_query(state):
-        current = owner_context.get()
-        if current is None or not state.is_select:
-            return
-        from app.database.database import Base
-        from app.models.models import User
-        from sqlalchemy import false
+def get_current_user(request: Request, db: Session = Depends(get_db)) -> CurrentUser:
+    """The signed-in user, from the token the middleware verified."""
+    claims = getattr(request.state, 'stage12_claims', None)
+    if not claims:
+        raise HTTPException(status_code=401, detail='Authentication required')
+    user = resolve_user(db, claims)
+    return CurrentUser(id=user.id, name=user.name, email=user.email)
 
-        # Walk SQLAlchemy foreign keys to find an ownership path. This supports
-        # Stage 11 review-file / PR child tables that might reference a review
-        # indirectly instead of carrying project_id on every row.
-        mapped = {mapper.local_table: mapper.class_ for mapper in Base.registry.mappers}
-        predicate_cache = {}
 
-        def owner_predicate(entity, path=frozenset()):
-            if entity in predicate_cache:
-                return predicate_cache[entity]
-            if entity in path:
-                return None
-            if entity is User:
-                return entity.id == current
-            preds = []
-            for column in entity.__table__.columns:
-                for fk in column.foreign_keys:
-                    parent = mapped.get(fk.column.table)
-                    if parent is None:
-                        continue
-                    parent_predicate = owner_predicate(parent, path | {entity})
-                    if parent_predicate is not None:
-                        preds.append(column.in_(select(fk.column).where(parent_predicate)))
-            if not preds:
-                # Permit common schemas where ownership columns exist but are
-                # not declared as FKs; explicit names are still ownership roots.
-                names = entity.__table__.columns.keys()
-                if 'user_id' in names:
-                    preds = [entity.user_id == current]
-            if preds:
-                from sqlalchemy import or_
-                predicate_cache[entity] = or_(*preds)
-                return predicate_cache[entity]
-            return None
+def owned_project_ids(user_id: int):
+    """Subquery of the user's project ids, for filtering reviews they own."""
+    from app.models.models import Project
+    return select(Project.id).where(Project.user_id == user_id)
 
-        stmt = state.statement
-        for entity in mapped.values():
-            pred = owner_predicate(entity)
-            if pred is None:
-                name = entity.__tablename__.lower()
-                if any(word in name for word in ('review', 'finding', 'pull_request')):
-                    # A newly introduced user-data table with no recognized
-                    # ownership path must not be accidentally exposed.
-                    pred = false()
-                else:
-                    continue
-            stmt = stmt.options(with_loader_criteria(entity, pred, include_aliases=True))
-        state.statement = stmt
 
-    @event.listens_for(Session, 'before_flush')
-    def _block_cross_user_writes(db, flush_context, instances):
-        current = owner_context.get()
-        if current is None:
-            return
-        from app.models.models import User, Project, CodeReview, ReviewIssue
-        from sqlalchemy import inspect
-
-        project_ids = select(Project.id).where(Project.user_id == current)
-        review_ids = select(CodeReview.id).where(CodeReview.project_id.in_(project_ids))
-        for record in list(db.new) + list(db.dirty) + list(db.deleted):
-            if isinstance(record, User):
-                if record.id is not None and record.id != current:
-                    raise HTTPException(status_code=403, detail='Cannot modify another user')
-                continue
-            if isinstance(record, Project):
-                if record.user_id != current:
-                    raise HTTPException(status_code=403, detail='Invalid project ownership')
-            elif isinstance(record, CodeReview):
-                # If a newly created project has no PK yet, the application
-                # must flush that project before creating a review for it.
-                if record.project_id is None or db.execute(select(Project.id).where(Project.id == record.project_id, Project.user_id == current)).first() is None:
-                    raise HTTPException(status_code=404, detail='Project not found')
-            elif isinstance(record, ReviewIssue):
-                if record.review_id is None or db.execute(select(CodeReview.id).where(CodeReview.id == record.review_id, CodeReview.id.in_(review_ids))).first() is None:
-                    raise HTTPException(status_code=404, detail='Review not found')
-            elif 'user_id' in record.__mapper__.columns.keys():
-                if getattr(record, 'user_id') != current:
-                    raise HTTPException(status_code=403, detail='Not your resource')
-            elif 'project_id' in record.__mapper__.columns.keys():
-                project_id = getattr(record, 'project_id')
-                if project_id is None or db.execute(select(Project.id).where(Project.id == project_id, Project.user_id == current)).first() is None:
-                    raise HTTPException(status_code=404, detail='Project not found')
-            elif 'review_id' in record.__mapper__.columns.keys():
-                review_id = getattr(record, 'review_id')
-                if review_id is None or db.execute(select(CodeReview.id).where(CodeReview.id == review_id, CodeReview.id.in_(review_ids))).first() is None:
-                    raise HTTPException(status_code=404, detail='Review not found')
-
-    Session._stage12_filters_installed = True
+def get_owned_project(db: Session, project_id: int, user_id: int):
+    """The project if it belongs to the user, else None (callers answer 404)."""
+    from app.models.models import Project
+    return db.query(Project).filter(Project.id == project_id, Project.user_id == user_id).one_or_none()

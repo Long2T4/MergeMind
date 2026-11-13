@@ -1,12 +1,10 @@
-"""Call install_stage12(app) after other routers are included."""
+"""Call install_stage12(app) before adding CORS middleware."""
 from app.stage12.routes import router
 from app.stage12.middleware import Stage12AuthMiddleware
-from app.stage12.security import install_ownership_filters
 
 
 def install_stage12(app):
-    install_ownership_filters()
     app.include_router(router)
-    # Important: add CORS middleware AFTER this middleware if supporting
-    # anonymous CORS preflight across all browsers (installer checks ordering).
+    # Add CORS middleware AFTER this one, so CORS stays outermost and browser
+    # preflights and error responses keep their CORS headers.
     app.add_middleware(Stage12AuthMiddleware)

@@ -9,13 +9,13 @@ from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from app.database.database import get_db, get_session_factory
-from app.models.models import Project
 from app.models.schemas import CodeReviewOut, PullRequestReviewCreate
 from app.services.github_service import GitHubError, get_github_client_factory, parse_pull_request_url
 from app.services.pr_review_service import (
     PullRequestRejected, check_capacity, run_pull_request_review, start_pull_request_review,
 )
 from app.services.project_context_service import _project_path
+from app.stage12.security import CurrentUser, get_current_user, get_owned_project
 
 router = APIRouter(prefix="/pull-request-reviews", tags=["pull-request-reviews"])
 
@@ -27,6 +27,7 @@ def create_pull_request_review(
     db: Session = Depends(get_db),
     session_factory=Depends(get_session_factory),
     github_client=Depends(get_github_client_factory),
+    user: CurrentUser = Depends(get_current_user),
 ):
     try:
         ref = parse_pull_request_url(body.pr_url)
@@ -34,7 +35,9 @@ def create_pull_request_review(
     except ValueError as error:
         raise HTTPException(status_code=422, detail=str(error)) from error
 
-    if db.get(Project, body.project_id) is None:
+    # Stage 12: another user's project gets the same 404 as a missing one.
+    # The duplicate and capacity checks below stay server-wide.
+    if get_owned_project(db, body.project_id, user.id) is None:
         raise HTTPException(status_code=404, detail="Project not found")
 
     try:

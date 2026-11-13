@@ -9,6 +9,7 @@ from app.models.models import CodeReview, Project, ReviewIssue
 from app.models.schemas import CodeReviewCreate, CodeReviewOut, ContextSummary
 from app.services.ai_review_service import build_review_payload, review_code
 from app.services.project_context_service import collect_project_context
+from app.stage12.security import CurrentUser, get_current_user, get_owned_project, owned_project_ids
 
 # Stage 7: Import confidence scoring function
 from app.services.confidence_service import calculate_confidence
@@ -21,7 +22,9 @@ router = APIRouter(prefix="/code-reviews", tags=["code-reviews"])
 
 
 @router.post("/", response_model=CodeReviewOut)
-def create_code_review(review: CodeReviewCreate, db: Session = Depends(get_db)):
+def create_code_review(
+    review: CodeReviewCreate, db: Session = Depends(get_db), user: CurrentUser = Depends(get_current_user),
+):
     context = None
     summary = None
     context_input = review.project_context
@@ -53,8 +56,9 @@ def create_code_review(review: CodeReviewCreate, db: Session = Depends(get_db)):
         raise HTTPException(status_code=422, detail=str(error)) from error
 
     # Check before saving: a missing project would otherwise fail on the
-    # foreign key with an unhandled database error.
-    if db.get(Project, review.project_id) is None:
+    # foreign key with an unhandled database error. Stage 12: another user's
+    # project gets the same 404.
+    if get_owned_project(db, review.project_id, user.id) is None:
         raise HTTPException(status_code=404, detail="Project not found")
 
     def response():
@@ -125,10 +129,11 @@ def create_code_review(review: CodeReviewCreate, db: Session = Depends(get_db)):
 
 
 @router.get("/", response_model=list[CodeReviewOut])
-def list_code_reviews(db: Session = Depends(get_db)):
+def list_code_reviews(db: Session = Depends(get_db), user: CurrentUser = Depends(get_current_user)):
     return (
         db.query(CodeReview)
         .options(joinedload(CodeReview.issues))
+        .filter(CodeReview.project_id.in_(owned_project_ids(user.id)))
         .order_by(CodeReview.created_at.desc())
         .all()
     )

@@ -1,25 +1,19 @@
-"""Stage 12 endpoints; all reads/writes require middleware-established identity."""
+"""Stage 12 endpoints; every route depends on the signed-in user and checks ownership."""
 from __future__ import annotations
 from collections import Counter, defaultdict
 from datetime import datetime
 from typing import Literal
 
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from app.database.database import get_db
 from app.models.models import Project, CodeReview, ReviewIssue
+from app.stage12.security import CurrentUser, get_current_user
 
 router = APIRouter(prefix='/account', tags=['Stage 12 - account and learning'])
-
-
-def principal(request: Request) -> int:
-    info = getattr(request.state, 'stage12_user', None)
-    if not info:
-        raise HTTPException(status_code=401, detail='Authentication required')
-    return info['id']
 
 
 class NewProject(BaseModel):
@@ -35,21 +29,20 @@ def serialize_project(project):
 
 
 @router.get('/me')
-def get_me(request: Request):
-    principal(request)
-    return request.state.stage12_user
+def get_me(user: CurrentUser = Depends(get_current_user)):
+    return {'id': user.id, 'name': user.name, 'email': user.email}
 
 
 @router.get('/projects')
-def list_projects(request: Request, db: Session = Depends(get_db)):
-    uid = principal(request)
+def list_projects(db: Session = Depends(get_db), user: CurrentUser = Depends(get_current_user)):
+    uid = user.id
     projects = db.query(Project).filter(Project.user_id == uid).order_by(Project.id.desc()).all()
     return [serialize_project(p) for p in projects]
 
 
 @router.post('/projects', status_code=201)
-def create_project(body: NewProject, request: Request, db: Session = Depends(get_db)):
-    uid = principal(request)
+def create_project(body: NewProject, db: Session = Depends(get_db), user: CurrentUser = Depends(get_current_user)):
+    uid = user.id
     name = body.name.strip()
     if not name:
         raise HTTPException(status_code=422, detail='Project name cannot be blank')
@@ -61,8 +54,8 @@ def create_project(body: NewProject, request: Request, db: Session = Depends(get
 
 
 @router.get('/projects/{project_id}')
-def get_project(project_id: int, request: Request, db: Session = Depends(get_db)):
-    uid = principal(request)
+def get_project(project_id: int, db: Session = Depends(get_db), user: CurrentUser = Depends(get_current_user)):
+    uid = user.id
     project = db.query(Project).filter(Project.id == project_id, Project.user_id == uid).first()
     if not project:
         raise HTTPException(status_code=404, detail='Project not found')
@@ -70,8 +63,8 @@ def get_project(project_id: int, request: Request, db: Session = Depends(get_db)
 
 
 @router.get('/reviews/{review_id}/findings')
-def review_findings(review_id: int, request: Request, db: Session = Depends(get_db)):
-    uid = principal(request)
+def review_findings(review_id: int, db: Session = Depends(get_db), user: CurrentUser = Depends(get_current_user)):
+    uid = user.id
     review = (
         db.query(CodeReview)
         .join(Project, Project.id == CodeReview.project_id)
@@ -90,8 +83,8 @@ def review_findings(review_id: int, request: Request, db: Session = Depends(get_
 
 
 @router.patch('/findings/{issue_id}')
-def update_status(issue_id: int, body: FindingStatus, request: Request, db: Session = Depends(get_db)):
-    uid = principal(request)
+def update_status(issue_id: int, body: FindingStatus, db: Session = Depends(get_db), user: CurrentUser = Depends(get_current_user)):
+    uid = user.id
     issue = (
         db.query(ReviewIssue)
         .join(CodeReview, CodeReview.id == ReviewIssue.review_id)
@@ -153,8 +146,8 @@ def learning_metrics(reviews, findings):
 
 
 @router.get('/learning')
-def get_learning(request: Request, db: Session = Depends(get_db)):
-    uid = principal(request)
+def get_learning(db: Session = Depends(get_db), user: CurrentUser = Depends(get_current_user)):
+    uid = user.id
     reviews = (
         db.query(CodeReview)
         .join(Project, CodeReview.project_id == Project.id)
