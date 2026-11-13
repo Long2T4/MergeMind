@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from sqlalchemy import Boolean, ForeignKey, Integer, String, Text, DateTime, JSON
+from sqlalchemy import Boolean, CheckConstraint, ForeignKey, Integer, String, Text, DateTime, JSON
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database.database import Base
@@ -102,8 +102,18 @@ class PullRequestFile(Base):
     pull_request: Mapped["PullRequest"] = relationship(back_populates="files")
 
 
+FINDING_STATUSES = ("open", "fixed", "dismissed", "false_positive")
+
+
 class ReviewIssue(Base):
     __tablename__ = "review_issues"
+    # Stage 12 (migration 0005): only the four developer outcomes are allowed.
+    __table_args__ = (
+        CheckConstraint(
+            "status IN ('open', 'fixed', 'dismissed', 'false_positive')",
+            name="ck_review_issues_status",
+        ),
+    )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     review_id: Mapped[int] = mapped_column(ForeignKey("code_reviews.id"), index=True)
@@ -125,10 +135,12 @@ class ReviewIssue(Base):
     #Stores which evidence sources support the finding.
     confidence_evidence: Mapped[dict | None] = mapped_column(JSON, nullable=True)
     
-    # Tracks the developer's response to this finding. Valid values (enforced
-    # with Developer Feedback, planned for Stage 12): "open", "fixed",
-    # "dismissed", "false_positive".
+    # Tracks the developer's response to this finding: one of FINDING_STATUSES
+    # (enforced by ck_review_issues_status). "fixed" is self-reported.
     status: Mapped[str] = mapped_column(String(30), default="open", nullable=False)
+    # Stage 12: who last changed the status, and when. Empty until changed.
+    status_updated_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    status_updated_by: Mapped[int | None] = mapped_column(ForeignKey("users.id"), nullable=True)
 
     # Stage 11: for pull request reviews, True if the finding is not on a
     # changed line. Empty for manual reviews.

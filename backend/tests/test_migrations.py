@@ -16,14 +16,14 @@ from alembic.config import Config
 from alembic.migration import MigrationContext
 from sqlalchemy import create_engine, inspect, text
 from sqlalchemy.engine import make_url
-from sqlalchemy.exc import DBAPIError
+from sqlalchemy.exc import DBAPIError, IntegrityError
 
 from app.database.database import Base
 from app.models import models  # noqa: F401 (registers the tables on Base)
 
 BACKEND = Path(__file__).resolve().parents[1]
 POSTGRES_URL = os.environ.get("MIGRATION_TEST_DATABASE_URL")
-HEAD = "0004_pull_requests"
+HEAD = "0005_stage12_accounts_feedback"
 API_ROLES = ("anon", "authenticated")
 TABLES = ("review_issues", "code_reviews", "pull_request_files", "pull_requests", "projects", "users",
           "alembic_version")
@@ -205,6 +205,91 @@ def test_pull_request_migration_can_be_reversed_without_losing_manual_reviews(en
     assert INDEXES <= index_names(engine, "code_reviews") | index_names(engine, "review_issues")
     with engine.connect() as connection:
         assert connection.execute(text("SELECT explanation FROM review_issues")).scalar_one() == "Kept finding"
+
+    migrate(engine)
+    assert schema_differences(engine) == []
+
+
+STAGE_12_ISSUE_COLUMNS = {"status_updated_at", "status_updated_by"}
+
+
+def _columns(engine, table: str) -> set[str]:
+    return {column["name"] for column in inspect(engine).get_columns(table)}
+
+
+def test_stage_11_database_gains_stage_12_columns_and_keeps_data(engine):
+    migrate(engine, "0004_pull_requests")
+    _seed_stage_10_review(engine)
+
+    migrate(engine)
+
+    assert current_revision(engine) == HEAD
+    assert schema_differences(engine) == []
+    assert "auth_user_id" in _columns(engine, "users")
+    assert STAGE_12_ISSUE_COLUMNS <= _columns(engine, "review_issues")
+    assert "ix_users_auth_user_id" in index_names(engine, "users")
+    with engine.connect() as connection:
+        user = connection.execute(text("SELECT name, auth_user_id FROM users")).one()
+        issue = connection.execute(text(
+            "SELECT explanation, status, status_updated_at, status_updated_by FROM review_issues")).one()
+    assert tuple(user) == ("Kept", None)
+    assert tuple(issue) == ("Kept finding", "open", None, None)
+
+
+def test_an_invalid_existing_status_stops_the_migration_without_changing_anything(engine):
+    migrate(engine, "0004_pull_requests")
+    _seed_stage_10_review(engine)
+    with engine.begin() as connection:
+        connection.execute(text("UPDATE review_issues SET status = 'done'"))
+
+    with pytest.raises(RuntimeError, match="1 review_issues row"):
+        migrate(engine)
+
+    assert current_revision(engine) == "0004_pull_requests"
+    assert "auth_user_id" not in _columns(engine, "users")
+    assert not STAGE_12_ISSUE_COLUMNS & _columns(engine, "review_issues")
+    with engine.connect() as connection:
+        assert connection.execute(text("SELECT status FROM review_issues")).scalar_one() == "done"
+
+
+def test_status_constraint_rejects_unknown_values(engine):
+    migrate(engine)
+    _seed_stage_10_review(engine)
+    with engine.begin() as connection:
+        for status in ("fixed", "dismissed", "false_positive", "open"):
+            connection.execute(text("UPDATE review_issues SET status = :s"), {"s": status})
+    with pytest.raises(IntegrityError):
+        with engine.begin() as connection:
+            connection.execute(text("UPDATE review_issues SET status = 'resolved'"))
+
+
+def test_auth_user_id_is_unique_but_many_users_can_be_unlinked(engine):
+    migrate(engine)
+    with engine.begin() as connection:
+        for user_id in (1, 2, 3):
+            connection.execute(text(
+                "INSERT INTO users (id, name, email, created_at) VALUES (:i, 'u', :e, '2026-11-13 10:00:00')"),
+                {"i": user_id, "e": f"u{user_id}@example.com"})
+        connection.execute(text("UPDATE users SET auth_user_id = :a WHERE id = 1"),
+                           {"a": "11111111-1111-1111-1111-111111111111"})
+    with pytest.raises(IntegrityError):
+        with engine.begin() as connection:
+            connection.execute(text("UPDATE users SET auth_user_id = :a WHERE id = 2"),
+                               {"a": "11111111-1111-1111-1111-111111111111"})
+
+
+def test_stage_12_migration_can_be_reversed_without_losing_data(engine):
+    migrate(engine)
+    _seed_stage_10_review(engine)
+
+    migrate(engine, "0004_pull_requests", downgrade=True)
+    assert "auth_user_id" not in _columns(engine, "users")
+    assert not STAGE_12_ISSUE_COLUMNS & _columns(engine, "review_issues")
+    with engine.connect() as connection:
+        assert connection.execute(text("SELECT explanation FROM review_issues")).scalar_one() == "Kept finding"
+    with engine.begin() as connection:  # the constraint went with the downgrade
+        connection.execute(text("UPDATE review_issues SET status = 'anything'"))
+        connection.execute(text("UPDATE review_issues SET status = 'open'"))
 
     migrate(engine)
     assert schema_differences(engine) == []

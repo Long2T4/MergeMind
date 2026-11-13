@@ -1,7 +1,8 @@
 import { fireEvent, screen, waitFor } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import * as api from '../services/api'
-import { issue, mockApi, review } from './fixtures'
+import * as auth from '../stage12/auth'
+import { PROJECTS, issue, mockApi, review } from './fixtures'
 import { renderApp } from './utils'
 
 vi.mock('../services/api')
@@ -165,9 +166,13 @@ describe('Learning profile', () => {
 })
 
 describe('Projects', () => {
-  it('lists projects from the existing endpoint', async () => {
+  it("lists the signed-in user's projects from the Stage 12 account endpoint", async () => {
+    const spy = vi.spyOn(auth, 'accountRequest').mockResolvedValue(PROJECTS)
     renderApp('/projects')
-    expect(await screen.findByRole('heading', { level: 2, name: 'Login App' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { level: 1, name: 'Projects' })).toBeInTheDocument()
+    expect(await screen.findByText('Login App')).toBeInTheDocument()
     expect(screen.getByText('User authentication')).toBeInTheDocument()
+    expect(spy).toHaveBeenCalledWith('/projects')
+    spy.mockRestore()
   })
 })
