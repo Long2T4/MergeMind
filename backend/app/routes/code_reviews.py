@@ -1,7 +1,9 @@
 
 import logging
+from datetime import datetime, timedelta
 
 from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy import func
 from sqlalchemy.orm import Session, joinedload
 
 from app.database.database import get_db
@@ -19,6 +21,10 @@ from app.services.risk_score_service import calculate_risk
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/code-reviews", tags=["code-reviews"])
+
+# Each manual review makes one AI call; at most this many start per hour,
+# across all users (Stage 12, until there are per-user limits).
+MAX_MANUAL_REVIEWS_PER_HOUR = 30
 
 
 @router.post("/", response_model=CodeReviewOut)
@@ -60,6 +66,20 @@ def create_code_review(
     # project gets the same 404.
     if get_owned_project(db, review.project_id, user.id) is None:
         raise HTTPException(status_code=404, detail="Project not found")
+
+    # Stage 12: bound AI spending across all users. Pull request reviews have
+    # their own limits (pr_review_service) and don't count here.
+    recent_manual = (
+        db.query(func.count(CodeReview.id))
+        .filter(CodeReview.pull_request_id.is_(None),
+                CodeReview.created_at >= datetime.utcnow() - timedelta(hours=1))
+        .scalar()
+    )
+    if recent_manual >= MAX_MANUAL_REVIEWS_PER_HOUR:
+        raise HTTPException(
+            status_code=429,
+            detail=f"MergeMind runs at most {MAX_MANUAL_REVIEWS_PER_HOUR} manual reviews per hour. Try again later.",
+        )
 
     def response():
         result = CodeReviewOut.model_validate(db_review)

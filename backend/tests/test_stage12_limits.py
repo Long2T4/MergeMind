@@ -1,14 +1,18 @@
-"""Stage 12: the Stage 11 AI usage limits stay server-wide with two signed-in users.
+"""Stage 12: the AI usage limits stay server-wide with two signed-in users.
 
+Covers the Stage 11 pull request limits and the Stage 12 manual-review limit.
 Drives the real API (middleware, routers, background task) as users A and B.
 GitHub is the in-memory fake and Anthropic is mocked; nothing leaves the machine.
 """
 import re
+from datetime import datetime, timedelta
 
 import httpx
 import pytest
 
+from app.models.models import CodeReview, PullRequest
 from app.routes import pull_request_reviews as pr_route
+from app.routes.code_reviews import MAX_MANUAL_REVIEWS_PER_HOUR
 from app.services.pr_review_service import MAX_ACTIVE_REVIEWS, MAX_REVIEWS_PER_HOUR
 from test_stage12_authorization import A, B, env  # noqa: F401 (pytest fixture)
 
@@ -143,3 +147,74 @@ def test_background_reviews_complete_for_each_user(env, github):
         assert detail["pull_request"]["number"] == number
         assert {issue["file_name"] for issue in detail["issues"]} == {"src/app.py", "src/util.py"}
     assert ai_calls(env) == 4  # two reviewable files per PR
+
+
+# --- 6. At most 30 manual reviews per hour, across all users ---------------------
+
+def manual(env, user, owner):
+    return env.client.post("/code-reviews/", headers=user, json={
+        "project_id": env.ids[owner].project, "submitted_code": "x = 1\n", "programming_language": "python"})
+
+
+def manual_reviews_ago(env, count, minutes):
+    """Saved manual reviews in A's project, created `minutes` ago (no AI call)."""
+    with env.factory() as db:
+        created = datetime.utcnow() - timedelta(minutes=minutes)
+        db.add_all(CodeReview(project_id=env.ids["A"].project, submitted_code="x", programming_language="python",
+                              review_status="completed", created_at=created) for _ in range(count))
+        db.commit()
+
+
+def recent_manual_reviews(env):
+    with env.factory() as db:
+        return db.query(CodeReview).filter(CodeReview.pull_request_id.is_(None)).count()
+
+
+def test_manual_review_limit_counts_every_users_reviews(env):
+    assert MAX_MANUAL_REVIEWS_PER_HOUR == 30
+    allowed = MAX_MANUAL_REVIEWS_PER_HOUR - recent_manual_reviews(env)  # the fixture saved one per user
+    for number in range(allowed):
+        user, owner = (A, "A") if number % 2 else (B, "B")
+        response = manual(env, user, owner)
+        assert response.status_code == 200, response.json()
+        assert response.json()["review_status"] == "completed"
+    assert ai_calls(env) == allowed
+    assert recent_manual_reviews(env) == MAX_MANUAL_REVIEWS_PER_HOUR
+
+    blocked = manual(env, B, "B")
+    assert blocked.status_code == 429
+    assert "30 manual reviews per hour" in blocked.json()["detail"]
+    assert ai_calls(env) == allowed  # no AI call for the refused review
+    assert recent_manual_reviews(env) == MAX_MANUAL_REVIEWS_PER_HOUR  # and nothing was saved for it
+
+
+def test_manual_limit_checks_ownership_first(env):
+    manual_reviews_ago(env, MAX_MANUAL_REVIEWS_PER_HOUR, minutes=5)
+    # At the limit, someone else's project still gets 404, not 429, and no AI call.
+    assert manual(env, A, "B").status_code == 404
+    assert manual(env, A, "A").status_code == 429
+    assert ai_calls(env) == 0
+
+
+def test_manual_limit_only_counts_the_last_hour(env):
+    manual_reviews_ago(env, MAX_MANUAL_REVIEWS_PER_HOUR, minutes=61)
+    assert manual(env, A, "A").status_code == 200
+    assert ai_calls(env) == 1
+
+
+def test_pull_request_reviews_and_manual_reviews_have_separate_limits(env, github):
+    with env.factory() as db:  # 30 recent pull request reviews don't use up the manual limit
+        pr = PullRequest(owner="octo-org", repo="sample-repo", number=900, title="t", author="a",
+                         html_url=pr_url(900), base_sha="b" * 40, head_sha="a" * 40, source_root="",
+                         changed_files_count=1, additions=1, deletions=0)
+        db.add_all(CodeReview(project_id=env.ids["A"].project, submitted_code="diff", programming_language="python",
+                              review_status="completed", pull_request=pr) for _ in range(MAX_MANUAL_REVIEWS_PER_HOUR))
+        db.commit()
+    assert manual(env, A, "A").status_code == 200
+
+    # At the manual limit, a pull request review still runs under its own limits.
+    manual_reviews_ago(env, MAX_MANUAL_REVIEWS_PER_HOUR, minutes=5)
+    assert manual(env, A, "A").status_code == 429
+    pr_review = start(env, B, 401, owner="B")
+    assert pr_review.status_code == 429  # the 30 seeded PR reviews exceed the PR hourly limit of 20
+    assert "pull requests per hour" in pr_review.json()["detail"]
