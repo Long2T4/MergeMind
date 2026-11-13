@@ -1,9 +1,8 @@
 import { useEffect, useState } from 'react'
 import { accountRequest } from './auth'
+import { STATUS_OPTIONS } from './statuses'
 
-const STATUS_LABELS = {
-  open: 'Open', fixed: 'Fixed', dismissed: 'Dismissed', false_positive: 'False positive',
-}
+const STATUS_LABELS = Object.fromEntries(STATUS_OPTIONS)
 
 export function Stage12Panel({ session, onLogout }) {
   const [open, setOpen] = useState(false)
@@ -109,7 +108,7 @@ export function Stage12Panel({ session, onLogout }) {
         <h2>Learning dashboard</h2>
         {metrics && <>
           <div className="s12-metrics">
-            {[['Reviews', metrics.total_reviews], ['Issues', metrics.total_issues], ['Fixed', metrics.fixed_issues], ['False positives', metrics.false_positives]].map(([label,value]) => <div key={label}><small>{label}</small><strong>{value}</strong></div>)}
+            {[['Reviews', metrics.total_reviews], ['Issues', metrics.total_issues], ['Fixed (self-reported)', metrics.fixed_issues], ['False positives', metrics.false_positives]].map(([label,value]) => <div key={label}><small>{label}</small><strong>{value}</strong></div>)}
           </div>
           <h3>Finding outcomes</h3>
           <div className="s12-outcomes">{Object.entries(metrics.statuses).map(([key,value]) => <p key={key}>{STATUS_LABELS[key]}: <strong>{value}</strong></p>)}</div>

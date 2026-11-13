@@ -6,10 +6,13 @@ database work or user context lives here, so background tasks don't depend
 on it.
 """
 from __future__ import annotations
+import logging
 from fastapi import HTTPException, Request
 from fastapi.responses import JSONResponse
 from starlette.middleware.base import BaseHTTPMiddleware
 from app.stage12.security import verify_token
+
+logger = logging.getLogger(__name__)
 
 PUBLIC = {'/health', '/health/', '/openapi.json', '/docs', '/docs/oauth2-redirect', '/redoc'}
 
@@ -28,4 +31,8 @@ class Stage12AuthMiddleware(BaseHTTPMiddleware):
             request.state.stage12_claims = verify_token(bearer[7:].strip())
         except HTTPException as exc:
             return JSONResponse({'detail': exc.detail}, status_code=exc.status_code)
+        except RuntimeError as exc:
+            # Server misconfiguration (SUPABASE_URL): fail closed, clearly.
+            logger.error('Sign-in is misconfigured: %s', exc)
+            return JSONResponse({'detail': "Sign-in isn't configured on this server"}, status_code=503)
         return await call_next(request)

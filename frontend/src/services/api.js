@@ -12,8 +12,9 @@ export async function getProjects() {
   return response.json()
 }
 
+// Public: the health check works without signing in.
 export async function getHealth() {
-  const response = await authFetch(`${API_BASE_URL}/health`)
+  const response = await fetch(`${API_BASE_URL}/health`)
   if (!response.ok) {
     throw new Error(`Health check failed with status ${response.status}`)
   }

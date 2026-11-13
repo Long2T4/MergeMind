@@ -1,14 +1,25 @@
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.models import models  # noqa: F401 (import needed to register models with Base)
 from app.routes import health, users, projects, code_reviews, pull_request_reviews, review_history
+from app.stage12.security import validate_auth_config
 
 # The schema is managed by Alembic migrations (backend/alembic/), not created
 # at startup: create_all() can't add columns to existing tables. Before
 # running the app, apply migrations from backend/ with: alembic upgrade head
 
-app = FastAPI(title="AI Code Review Assistant API")
+@asynccontextmanager
+async def lifespan(_app: FastAPI):
+    # Stage 12: refuse to start without a valid SUPABASE_URL, with a clear
+    # message, instead of failing every signed-in request later.
+    validate_auth_config()
+    yield
+
+
+app = FastAPI(title="AI Code Review Assistant API", lifespan=lifespan)
 
 
 # Stage 12 (install before CORS so browser preflights/errors retain CORS headers)

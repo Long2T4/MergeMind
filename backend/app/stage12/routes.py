@@ -20,6 +20,10 @@ class NewProject(BaseModel):
     name: str = Field(min_length=1, max_length=255)
     description: str | None = Field(default=None, max_length=4000)
 
+class ProjectUpdate(BaseModel):
+    name: str = Field(min_length=1, max_length=255)
+    description: str | None = Field(default=None, max_length=4000)
+
 class FindingStatus(BaseModel):
     status: Literal['open', 'fixed', 'dismissed', 'false_positive']
 
@@ -62,6 +66,28 @@ def get_project(project_id: int, db: Session = Depends(get_db), user: CurrentUse
     return serialize_project(project)
 
 
+@router.patch('/projects/{project_id}')
+def rename_project(project_id: int, body: ProjectUpdate, db: Session = Depends(get_db),
+                   user: CurrentUser = Depends(get_current_user)):
+    project = db.query(Project).filter(Project.id == project_id, Project.user_id == user.id).first()
+    if not project:
+        raise HTTPException(status_code=404, detail='Project not found')
+    name = body.name.strip()
+    if not name:
+        raise HTTPException(status_code=422, detail='Project name cannot be blank')
+    project.name = name
+    if 'description' in body.model_fields_set:  # keep the description unless one is sent
+        project.description = body.description
+    db.commit()
+    db.refresh(project)
+    return serialize_project(project)
+
+
+def serialize_status(issue):
+    return {'status': issue.status or 'open', 'status_updated_at': issue.status_updated_at,
+            'status_updated_by': issue.status_updated_by}
+
+
 @router.get('/reviews/{review_id}/findings')
 def review_findings(review_id: int, db: Session = Depends(get_db), user: CurrentUser = Depends(get_current_user)):
     uid = user.id
@@ -76,8 +102,7 @@ def review_findings(review_id: int, db: Session = Depends(get_db), user: Current
     issues = db.query(ReviewIssue).filter(ReviewIssue.review_id == review_id).order_by(ReviewIssue.id).all()
     return [
         {'id': issue.id, 'title': getattr(issue, 'title', '') or 'Finding',
-         'category': issue.category, 'severity': issue.severity,
-         'status': issue.status or 'open'}
+         'category': issue.category, 'severity': issue.severity, **serialize_status(issue)}
         for issue in issues
     ]
 
@@ -95,9 +120,11 @@ def update_status(issue_id: int, body: FindingStatus, db: Session = Depends(get_
     if not issue:
         raise HTTPException(status_code=404, detail='Finding not found')
     issue.status = body.status  # Only outcome is edited; Stage 13 analysis untouched.
+    issue.status_updated_at = datetime.utcnow()  # who changed it, and when (self-reported)
+    issue.status_updated_by = uid
     db.commit()
     db.refresh(issue)
-    return {'id': issue.id, 'status': issue.status}
+    return {'id': issue.id, **serialize_status(issue)}
 
 
 CATEGORIES = ('Security','Testing','Error Handling','Input Validation','Database','Performance','Code Quality','Logic')
@@ -110,6 +137,7 @@ def normalize_category(value: str | None) -> str:
 def learning_metrics(reviews, findings):
     """Pure function; safe to test without a database. Dates are *review creation* dates."""
     statuses = Counter({'open': 0, 'fixed': 0, 'dismissed': 0, 'false_positive': 0})
+    category_outcomes = defaultdict(lambda: dict.fromkeys(statuses, 0))
     category_count = Counter()
     category_review_ids = defaultdict(set)
     by_month = defaultdict(lambda: Counter())
@@ -119,6 +147,7 @@ def learning_metrics(reviews, findings):
         statuses[status] += 1
         category = normalize_category(issue.category)
         category_count[category] += 1
+        category_outcomes[category][status] += 1
         category_review_ids[category].add(issue.review_id)
         review = review_by_id.get(issue.review_id)
         if review and review.created_at:
@@ -132,6 +161,11 @@ def learning_metrics(reviews, findings):
         'false_positives': statuses['false_positive'],
         'statuses': dict(statuses),
         'categories': dict(sorted(category_count.items(), key=lambda c: (-c[1], c[0]))),
+        # Outcomes per category, in the same order; each count is saved findings.
+        'category_outcomes': {
+            category: category_outcomes[category]
+            for category, _ in sorted(category_count.items(), key=lambda c: (-c[1], c[0]))
+        },
         'repeated_categories': [
             {'category': category, 'review_count': len(ids)}
             for category, ids in sorted(category_review_ids.items(), key=lambda kv: (-len(kv[1]), kv[0]))

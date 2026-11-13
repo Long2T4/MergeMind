@@ -27,8 +27,16 @@ def _issuer() -> str:
     url = os.environ.get('SUPABASE_URL', '').rstrip('/')
     parsed = urlsplit(url)
     if parsed.scheme != 'https' or not parsed.hostname or parsed.username or parsed.password:
-        raise RuntimeError('Set a valid https SUPABASE_URL before starting Stage 12')
+        raise RuntimeError(
+            'SUPABASE_URL must be set to your Supabase project URL, for example '
+            'https://your-project.supabase.co (https, with no username or password)'
+        )
     return f'{url}/auth/v1'
+
+
+def validate_auth_config() -> None:
+    """Called when the app starts: refuse to run without a valid SUPABASE_URL."""
+    _issuer()
 
 
 @lru_cache(maxsize=4)

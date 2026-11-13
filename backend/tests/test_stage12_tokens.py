@@ -255,15 +255,16 @@ def test_health_needs_no_token(api):
     assert api.client.get("/health").status_code == 200
 
 
-# --- Server misconfiguration (recorded; startup validation is Step 6) -------------------
+# --- Server misconfiguration while running (startup is covered in test_stage12_startup.py) ---
 
 @pytest.mark.parametrize("value", [None, "", "http://test-project.supabase.co", "https://user:pass@test-project.supabase.co"])
-def test_an_invalid_supabase_url_never_lets_a_request_through(api, monkeypatch, value):
+def test_an_invalid_supabase_url_at_runtime_is_a_clear_503(api, monkeypatch, value):
     if value is None:
         monkeypatch.delenv("SUPABASE_URL", raising=False)
     else:
         monkeypatch.setenv("SUPABASE_URL", value)
     response = api.client.get("/account/me", headers=bearer(token()))
-    assert response.status_code != 200
+    assert response.status_code == 503
+    assert response.json()["detail"] == "Sign-in isn't configured on this server"
     with api.factory() as db:
         assert db.query(User).count() == 0
