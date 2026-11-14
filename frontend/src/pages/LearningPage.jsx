@@ -1,3 +1,7 @@
 import LegacyLearningPage from './LegacyLearningPage'
 import LearningDashboard from '../stage12/LearningDashboard'
-export default function LearningPage() { return <><LearningDashboard /><LegacyLearningPage /></> }
+
+// One learning page: the existing profile, plus how you marked each finding.
+export default function LearningPage() {
+  return <LegacyLearningPage outcomes={<LearningDashboard />} />
+}

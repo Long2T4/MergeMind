@@ -1,6 +1,6 @@
-import { useEffect, useState } from 'react'
-import { supabase } from './auth'
-import { Stage12Panel } from './Stage12Panel'
+import { useEffect, useMemo, useState } from 'react'
+import { accountRequest, supabase } from './auth'
+import { AccountContext } from './AccountContext'
 import './stage12.css'
 
 export default function Stage12Shell({ children }) {
@@ -11,6 +11,10 @@ export default function Stage12Shell({ children }) {
   const [mode, setMode] = useState('sign-in')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
+  // After sign-in, check once that the server can open this account.
+  const [account, setAccount] = useState({ status: 'idle' })
+  const userId = session?.user?.id
+  const userEmail = session?.user?.email || ''
 
   useEffect(() => {
     if (!supabase) { setReady(true); return }
@@ -26,6 +30,23 @@ export default function Stage12Shell({ children }) {
     })
     return () => { live = false; data.subscription.unsubscribe() }
   }, [])
+
+  useEffect(() => {
+    if (!userId) { setAccount({ status: 'idle' }); return undefined }
+    let live = true
+    setAccount({ status: 'checking' })
+    accountRequest('/me')
+      .then(() => { if (live) setAccount({ status: 'ready' }) })
+      .catch((err) => {
+        if (!live) return
+        // 409: saved data under this email must be linked by an administrator.
+        // 403: the sign-in has no verified email. Other failures (server down)
+        // are reported by each page, as before.
+        if (err.status === 409 || err.status === 403) setAccount({ status: 'blocked', code: err.status, message: err.message })
+        else setAccount({ status: 'ready' })
+      })
+    return () => { live = false }
+  }, [userId])
 
   async function submit(event) {
     event.preventDefault()
@@ -47,6 +68,8 @@ export default function Stage12Shell({ children }) {
     if (logoutError) setError(logoutError.message)
   }
 
+  const accountValue = useMemo(() => ({ email: userEmail, logout }), [userEmail])
+
   if (!ready) return <div className="s12-center">Checking your session…</div>
   if (!supabase) return <div className="s12-center s12-error">Stage 12 needs VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY.</div>
   if (!session) return (
@@ -63,8 +86,24 @@ export default function Stage12Shell({ children }) {
       </form>
     </main>
   )
-  return <>
-    {children}
-    <Stage12Panel session={session} onLogout={logout} />
-  </>
+  if (account.status === 'idle' || account.status === 'checking') return <div className="s12-center" role="status">Opening your account…</div>
+  if (account.status === 'blocked') return (
+    <main className="s12-center">
+      <section className="s12-login" aria-labelledby="account-blocked-title">
+        <div className="s12-symbol">M</div>
+        <h1 id="account-blocked-title">
+          {account.code === 409 ? 'This account needs to be linked' : 'This account can’t be opened'}
+        </h1>
+        <p role="alert">
+          {account.code === 409
+            ? 'MergeMind already has saved reviews under this email. An administrator must link them to your sign-in before you can continue. Your saved data has not been changed.'
+            : account.message}
+        </p>
+        <p>Signed in as <strong>{userEmail}</strong></p>
+        {error && <p className="s12-error" role="alert">{error}</p>}
+        <button type="button" onClick={logout}>Log out</button>
+      </section>
+    </main>
+  )
+  return <AccountContext.Provider value={accountValue}>{children}</AccountContext.Provider>
 }

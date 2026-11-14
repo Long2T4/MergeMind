@@ -3,7 +3,6 @@ import { Link } from 'react-router-dom'
 import Icon from '../components/layout/Icon'
 import RecentReviewsTable from '../components/RecentReviewsTable'
 import CodeBlock from '../components/ui/CodeBlock'
-import ComingSoon from '../components/ui/ComingSoon'
 import EmptyState from '../components/ui/EmptyState'
 import ScoreRing from '../components/ui/ScoreRing'
 import StatCard from '../components/ui/StatCard'
@@ -110,16 +109,18 @@ function HomePage() {
         <section className="card action-card" aria-labelledby="pr-title">
           <div className="action-card-top">
             <span className="icon-tile is-violet"><Icon name="pullRequest" /></span>
-            <ComingSoon />
           </div>
           <div className="action-preview action-preview-empty">
-            <p>Pull requests will appear here once GitHub integration is available.</p>
+            <p className="mono">github.com/owner/repository/pull/123</p>
           </div>
           <div className="action-card-bottom">
             <div>
               <h2 id="pr-title" className="card-title">Review a pull request</h2>
-              <p className="muted">GitHub integration isn&apos;t available yet. For now, paste the changed code into a new review.</p>
+              <p className="muted">Paste a public GitHub pull request URL and MergeMind reviews the changed files.</p>
             </div>
+            <Link to="/reviews/new" state={{ source: 'github' }} className="btn btn-secondary">
+              Review a PR <Icon name="arrowRight" size={16} />
+            </Link>
           </div>
         </section>
       </div>

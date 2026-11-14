@@ -74,13 +74,18 @@ def _profile_name(claims: dict) -> str:
     return str(name)[:255]
 
 
+def _user_for_subject(db: Session, subject: str):
+    from app.models.models import User
+    return db.query(User).filter(User.auth_user_id == subject).one_or_none()
+
+
 def resolve_user(db: Session, claims: dict):
     """Resolve only by verified auth UUID. Do NOT silently claim an existing email account."""
     from app.models.models import User
     from sqlalchemy.exc import IntegrityError
 
     subject = str(UUID(str(claims['sub'])))
-    user = db.query(User).filter(User.auth_user_id == subject).one_or_none()
+    user = _user_for_subject(db, subject)
     if user:
         return user
     email = claims.get('email')
@@ -89,6 +94,12 @@ def resolve_user(db: Session, claims: dict):
     # Existing local records must be linked deliberately by an administrator;
     # matching email text on its own is not proof that the legacy data is owned.
     if db.query(User.id).filter(User.email == email).first():
+        # A simultaneous first request for this same login may have created
+        # the row since the lookup above. Reuse it only if its verified auth
+        # UUID matches; never claim a row by email alone.
+        user = _user_for_subject(db, subject)
+        if user:
+            return user
         raise HTTPException(status_code=409, detail='Existing account requires administrator linking')
     user = User(name=_profile_name(claims), email=email, auth_user_id=subject)
     db.add(user)
@@ -97,7 +108,7 @@ def resolve_user(db: Session, claims: dict):
     except IntegrityError as exc:
         db.rollback()
         # Handles a concurrent first-request insert without granting a foreign identity.
-        recovered = db.query(User).filter(User.auth_user_id == subject).one_or_none()
+        recovered = _user_for_subject(db, subject)
         if recovered:
             return recovered
         raise HTTPException(status_code=409, detail='Account initialization conflict') from exc

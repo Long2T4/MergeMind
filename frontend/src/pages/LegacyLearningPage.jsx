@@ -263,7 +263,8 @@ function GuidanceList({ categories }) {
   )
 }
 
-function LearningPage() {
+// `outcomes`: the Stage 12 finding-outcomes card, shown once there are reviews.
+function LearningPage({ outcomes = null }) {
   const [reviews, setReviews] = useState(null)
   const [stats, setStats] = useState(null)
   const [error, setError] = useState(false)
@@ -382,6 +383,7 @@ function LearningPage() {
         </div>
       ) : (
         <>
+          {outcomes}
           <div className="tabs" role="tablist" aria-label="Learning sections" onKeyDown={handleTabKey}>
             {TABS.map(([id, label]) => (
               <button
@@ -424,9 +426,6 @@ function LearningPage() {
         </>
       )}
 
-      <p className="page-footnote">
-        Fix rates, streaks and lessons need finding feedback (planned for Stage 12), so they aren&apos;t shown yet.
-      </p>
     </div>
   )
 }

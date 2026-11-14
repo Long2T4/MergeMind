@@ -26,7 +26,17 @@ describe('Home dashboard', () => {
     expect(screen.queryByText(/fix rate/i)).not.toBeInTheDocument()
     expect(screen.queryByText(/false positives/i)).not.toBeInTheDocument()
     expect(screen.queryByText(/streak/i)).not.toBeInTheDocument()
-    expect(screen.getByText('Coming soon')).toBeInTheDocument()
+    // Stage 11 made pull request reviews available: no "Coming soon" card.
+    expect(screen.queryByText('Coming soon')).not.toBeInTheDocument()
+    expect(screen.queryByText(/GitHub integration isn't available/)).not.toBeInTheDocument()
+    expect(screen.getByRole('link', { name: /Review a PR/ })).toHaveAttribute('href', '/reviews/new')
+  })
+
+  it('opens New Review on the pull request form from the Home card', async () => {
+    renderApp('/')
+    fireEvent.click(await screen.findByRole('link', { name: /Review a PR/ }))
+    expect(await screen.findByLabelText('Pull request URL')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'GitHub pull request' })).toHaveAttribute('aria-pressed', 'true')
   })
 
   it('shows empty states when there are no reviews', async () => {

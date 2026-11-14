@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link, useLocation } from 'react-router-dom'
 import { getHealth } from '../../services/api'
+import { useAccount } from '../../stage12/AccountContext'
 import Icon from './Icon'
 
 const NAV_ITEMS = [
@@ -42,8 +43,23 @@ function ApiStatus() {
   )
 }
 
+// The signed-in account, with sign-out. In the mobile menu it appears below
+// the links, so nothing floats over the page.
+function AccountBox({ account }) {
+  return (
+    <div className="sidebar-account">
+      <p className="sidebar-account-label eyebrow">Signed in as</p>
+      <p className="sidebar-account-email" title={account.email}>{account.email}</p>
+      <button type="button" className="btn btn-secondary btn-sm btn-block" onClick={account.logout}>
+        Log out
+      </button>
+    </div>
+  )
+}
+
 function Sidebar() {
   const { pathname } = useLocation()
+  const account = useAccount()
   const [menuOpen, setMenuOpen] = useState(false)
 
   // Close the mobile menu after navigating.
@@ -96,6 +112,7 @@ function Sidebar() {
         </nav>
 
         <div className="sidebar-footer">
+          {account && <AccountBox account={account} />}
           <ApiStatus />
         </div>
       </div>

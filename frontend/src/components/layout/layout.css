@@ -79,6 +79,26 @@
 
 .sidebar-footer { margin-top: auto; padding-top: 16px; }
 
+.sidebar-account {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 12px;
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+.sidebar-account-label { margin: 0; }
+.sidebar-account-email {
+  margin: 0;
+  overflow: hidden;
+  font-size: 13px;
+  color: var(--text);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .api-status {
   display: flex;
   align-items: center;

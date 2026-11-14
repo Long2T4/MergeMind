@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { DEFAULT_PROJECT_ID } from '../constants/projects'
+import { getSelectedProjectId } from '../constants/projects'
 import { PR_URL_HINT, parsePullRequestUrl } from '../lib/pullRequest'
 import Icon from './layout/Icon'
 
@@ -7,19 +7,19 @@ import Icon from './layout/Icon'
 function PullRequestForm({ projects = [], initialValues = {}, onSubmit, isSubmitting, error }) {
   const [url, setUrl] = useState(initialValues.prUrl ?? '')
   const [sourceRoot, setSourceRoot] = useState(initialValues.sourceRoot ?? '')
-  const [projectId, setProjectId] = useState(initialValues.projectId ?? DEFAULT_PROJECT_ID)
+  const [projectId, setProjectId] = useState(initialValues.projectId ?? getSelectedProjectId() ?? '')
   const [urlError, setUrlError] = useState('')
 
-  // Keep the selection valid once the real project list arrives.
+  // A retry keeps its original project; otherwise the project selected on the
+  // Projects page. Fall back to the first project if that one isn't listed.
+  // The page only shows this form once the user has projects.
   useEffect(() => {
     if (projects.length > 0 && !projects.some((project) => project.id === Number(projectId))) {
       setProjectId(projects[0].id)
     }
   }, [projects, projectId])
 
-  const projectOptions = projects.length > 0
-    ? projects
-    : [{ id: DEFAULT_PROJECT_ID, name: 'Default project' }]
+  const projectOptions = projects
 
   function handleSubmit(event) {
     event.preventDefault()

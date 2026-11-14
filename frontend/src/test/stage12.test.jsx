@@ -38,6 +38,8 @@ describe('Finding feedback on Review Results', () => {
     expect(within(controls[0]).getByRole('option', { name: 'Fixed (self-reported)' })).toBeInTheDocument()
     // The separate feedback list is gone; the controls live on the cards.
     expect(screen.queryByText('Developer feedback')).not.toBeInTheDocument()
+    // ...so the old "not available yet" footnote is gone too.
+    expect(screen.queryByText(/isn't available yet/)).not.toBeInTheDocument()
   })
 
   it('saves a new outcome and shows when it changed', async () => {
@@ -86,10 +88,18 @@ describe('Learning outcomes by category', () => {
     expect(within(logic).getAllByRole('cell').map((cell) => cell.textContent)).toEqual(['0', '1', '0', '0'])
   })
 
-  it('still loads the rest of the dashboard', async () => {
+  it('is one learning page, without duplicate totals or placeholder text', async () => {
     vi.spyOn(auth, 'accountRequest').mockImplementation(async (path) => (path === '/learning' ? LEARNING : []))
     renderApp('/learning')
-    await waitFor(() => expect(screen.getByText('My learning progress')).toBeInTheDocument())
+
+    const table = await screen.findByRole('table', { name: 'Finding outcomes by category' })
+    expect(screen.getAllByRole('heading', { level: 1 })).toHaveLength(1)
+    expect(screen.getByRole('heading', { level: 2, name: 'Finding outcomes' })).toBeInTheDocument()
+    expect(screen.queryByText('My learning progress')).not.toBeInTheDocument()
+    expect(screen.getAllByText('Reviews')).toHaveLength(1)
+    expect(screen.queryByText(/planned for Stage 12/)).not.toBeInTheDocument()
+    const totals = within(table).getByRole('row', { name: /All categories/ })
+    expect(within(totals).getAllByRole('cell').map((cell) => cell.textContent)).toEqual(['1', '1', '0', '1'])
   })
 })
 
@@ -142,5 +152,64 @@ describe('Health check', () => {
     expect(authFetch).not.toHaveBeenCalled()
     expect(fetch.mock.calls[0][1]?.headers?.Authorization).toBeUndefined()
     vi.unstubAllGlobals()
+  })
+})
+
+describe('New Review projects', () => {
+  const TWO_PROJECTS = [...PROJECTS, { ...PROJECTS[0], id: 2, name: 'Payments API' }]
+
+  beforeEach(() => localStorage.clear())
+  afterEach(() => localStorage.clear())
+
+  it('asks a user with no projects to create one, instead of using another account project', async () => {
+    api.getProjects.mockResolvedValue([])
+    renderApp('/reviews/new')
+
+    expect(await screen.findByText('Create a project first')).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Go to Projects' })).toHaveAttribute('href', '/projects')
+    expect(screen.queryByRole('button', { name: /Run review/ })).not.toBeInTheDocument()
+    expect(screen.queryByText('Default project')).not.toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: 'GitHub pull request' }))
+    expect(screen.getByText('Create a project first')).toBeInTheDocument()
+    expect(screen.queryByLabelText('Pull request URL')).not.toBeInTheDocument()
+    expect(api.createCodeReview).not.toHaveBeenCalled()
+  })
+
+  it('explains when the project list cannot be loaded', async () => {
+    api.getProjects.mockRejectedValue(new Error('offline'))
+    renderApp('/reviews/new')
+    expect(await screen.findByText(/Could not load your projects/)).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /Run review/ })).not.toBeInTheDocument()
+  })
+
+  it('uses the project selected on the Projects page', async () => {
+    api.getProjects.mockResolvedValue(TWO_PROJECTS)
+    vi.spyOn(auth, 'accountRequest').mockImplementation(async (path) => (path === '/projects' ? TWO_PROJECTS : []))
+    renderApp('/projects')
+
+    fireEvent.click(await screen.findByRole('button', { name: /^Payments API/ }))
+    expect(screen.getByText('New reviews will use Payments API')).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('link', { name: 'New Review' }))
+    expect(await screen.findByLabelText('Project')).toHaveValue('2')
+    fireEvent.change(screen.getByLabelText('Paste your code'), { target: { value: 'print(1)' } })
+    fireEvent.click(screen.getByRole('button', { name: /Run review/ }))
+    await waitFor(() => expect(api.createCodeReview).toHaveBeenCalledWith(expect.objectContaining({ projectId: 2 })))
+  })
+
+  it('uses the selected project for pull request reviews too', async () => {
+    api.getProjects.mockResolvedValue(TWO_PROJECTS)
+    localStorage.setItem('mergemind_active_project', '2')
+    renderApp('/reviews/new')
+
+    fireEvent.click(await screen.findByRole('button', { name: 'GitHub pull request' }))
+    expect(screen.getByLabelText('Project')).toHaveValue('2')
+  })
+
+  it('falls back to the first project when the saved selection is not one of yours', async () => {
+    localStorage.setItem('mergemind_active_project', '99')
+    renderApp('/reviews/new')
+    expect(await screen.findByLabelText('Project')).toHaveValue('1')
   })
 })

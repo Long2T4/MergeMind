@@ -21,7 +21,9 @@ export async function accountRequest(path, options = {}) {
   if (!response.ok) {
     let message = `Request failed (${response.status})`
     try { message = (await response.json()).detail || message } catch { /* not JSON */ }
-    throw new Error(typeof message === 'string' ? message : JSON.stringify(message))
+    const error = new Error(typeof message === 'string' ? message : JSON.stringify(message))
+    error.status = response.status
+    throw error
   }
   return response.json()
 }

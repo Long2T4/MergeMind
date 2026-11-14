@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react'
+import { getSelectedProjectId, setSelectedProjectId } from '../constants/projects'
 import { accountRequest } from './auth'
 
 export default function ProjectsWorkspace() {
   const [projects, setProjects] = useState([])
-  const [selected, setSelected] = useState(localStorage.getItem('mergemind_active_project') || '')
+  const [selected, setSelected] = useState(String(getSelectedProjectId() ?? ''))
   const [name, setName] = useState('')
   const [description, setDescription] = useState('')
   const [loading, setLoading] = useState(true)
@@ -47,15 +48,15 @@ export default function ProjectsWorkspace() {
   }
   function selectProject(project) {
     setSelected(String(project.id))
-    localStorage.setItem('mergemind_active_project', String(project.id))
-    setNotice(`${project.name} selected`)
+    setSelectedProjectId(project.id)
+    setNotice(`New reviews will use ${project.name}`)
   }
   return <section className="s12-embed">
     <h2>My projects</h2>
-    <p className="s12-muted">Create a project and select it when submitting a review. Only your projects are available to your account.</p>
+    <p className="s12-muted">New reviews use the selected project; you can still choose another one on the New Review page. Only you can see your projects.</p>
     {error && <p className="s12-error" role="alert">{error}</p>}
     {notice && <p className="s12-notice" role="status">{notice}</p>}
-    {loading ? <p>Loading projects…</p> : !projects.length ? <p>No projects yet.</p> : <div className="s12-project-grid">
+    {loading ? <p>Loading projects…</p> : !projects.length ? <p>No projects yet. Create your first project below, then start a review.</p> : <div className="s12-project-grid">
       {projects.map(project => <div key={project.id} className="s12-project-card">
         {renaming === project.id ? (
           <form className="s12-rename" onSubmit={saveRename}>
@@ -79,7 +80,7 @@ export default function ProjectsWorkspace() {
       <h3>Create a new project</h3>
       <input value={name} onChange={e => setName(e.target.value)} placeholder="Project name" required maxLength={255}/>
       <textarea value={description} onChange={e => setDescription(e.target.value)} placeholder="Description (optional)" maxLength={4000}/>
-      <button disabled={saving || !name.trim()}>{saving ? 'Creating…' : 'Create project'}</button>
+      <button className="btn btn-primary btn-sm" disabled={saving || !name.trim()}>{saving ? 'Creating…' : 'Create project'}</button>
     </form>
   </section>
 }

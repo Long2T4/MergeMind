@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
-import { useLocation, useNavigate } from 'react-router-dom'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
 import CodeSubmitForm from '../components/CodeSubmitForm'
 import PullRequestForm from '../components/PullRequestForm'
+import EmptyState from '../components/ui/EmptyState'
 import { LANGUAGES } from '../constants/languages'
 import { useProjects } from '../hooks/useProjects'
 import { createCodeReview, createPullRequestReview, getReviewHistoryDetail } from '../services/api'
@@ -12,10 +13,34 @@ const SOURCES = [
   { key: 'github', label: 'GitHub pull request' },
 ]
 
-function NewReviewContent({ retryReviewId, retryPullRequest }) {
+// Every review is saved under one of the user's own projects, so the forms
+// only appear once the user has at least one.
+function ProjectGate({ loaded, error, projects }) {
+  if (!loaded) return <p className="notice" role="status">Loading your projects…</p>
+  if (error) {
+    return (
+      <div className="notice notice-error" role="alert">
+        Could not load your projects. Check the backend connection, then refresh the page.
+      </div>
+    )
+  }
+  if (projects.length > 0) return null
+  return (
+    <div className="card">
+      <EmptyState
+        title="Create a project first"
+        action={<Link to="/projects" className="btn btn-primary btn-sm">Go to Projects</Link>}
+      >
+        Every review is saved under one of your projects. Create a project, then come back to run your review.
+      </EmptyState>
+    </div>
+  )
+}
+
+function NewReviewContent({ retryReviewId, retryPullRequest, initialSource }) {
   const navigate = useNavigate()
-  const { projects } = useProjects()
-  const [source, setSource] = useState(retryPullRequest ? 'github' : 'paste')
+  const { projects, loaded: projectsLoaded, error: projectsError } = useProjects()
+  const [source, setSource] = useState(retryPullRequest || initialSource === 'github' ? 'github' : 'paste')
   const [initialValues, setInitialValues] = useState(retryReviewId ? null : {})
   const [retryError, setRetryError] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -110,7 +135,9 @@ function NewReviewContent({ retryReviewId, retryPullRequest }) {
         </div>
       </div>
 
-      {source === 'github' ? (
+      <ProjectGate loaded={projectsLoaded} error={projectsError} projects={projects} />
+
+      {projects.length === 0 ? null : source === 'github' ? (
         <>
           {retryPullRequest && (
             <p className="notice notice-info retry-notice" role="status">
@@ -157,8 +184,16 @@ function NewReviewPage() {
   const location = useLocation()
   const retryReviewId = location.state?.retryReviewId ?? null
   const retryPullRequest = location.state?.retryPullRequest ?? null
-  const key = retryReviewId ?? (retryPullRequest ? `pr-${retryPullRequest.prUrl}` : 'new')
-  return <NewReviewContent key={key} retryReviewId={retryReviewId} retryPullRequest={retryPullRequest} />
+  const initialSource = location.state?.source ?? null
+  const key = retryReviewId ?? (retryPullRequest ? `pr-${retryPullRequest.prUrl}` : `new-${initialSource ?? 'paste'}`)
+  return (
+    <NewReviewContent
+      key={key}
+      retryReviewId={retryReviewId}
+      retryPullRequest={retryPullRequest}
+      initialSource={initialSource}
+    />
+  )
 }
 
 export default NewReviewPage
