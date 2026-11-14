@@ -4,7 +4,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.models import models  # noqa: F401 (import needed to register models with Base)
-from app.routes import health, users, projects, code_reviews, pull_request_reviews, review_history
+from app.routes import health, projects, code_reviews, pull_request_reviews, review_history
 from app.stage12.security import validate_auth_config
 
 # The schema is managed by Alembic migrations (backend/alembic/), not created
@@ -34,7 +34,9 @@ app.add_middleware(
 )
 
 app.include_router(health.router)
-app.include_router(users.router)
+# Stage 12: users are created from verified sign-ins (GET /account/me), so the
+# old open /users/ endpoints aren't registered. The middleware also answers
+# /users with 403.
 app.include_router(projects.router)
 app.include_router(code_reviews.router)
 app.include_router(pull_request_reviews.router)

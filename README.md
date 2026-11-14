@@ -4,6 +4,8 @@ MergeMind is an AI code review platform for students and junior developers. It r
 
 MergeMind is a university senior capstone project built by a student team. It runs locally today. It has not been deployed, and it isn't ready to host private code (see [Current limitations](#current-limitations)).
 
+> **Stage 12 (accounts, finding outcomes and learning) is described below but not merged yet.** It is on the `fix/stage-12-pr15` branch, which builds on pull request [#15](https://github.com/Long2T4/MergeMind/pull/15). On `main`, the app has no sign-in.
+
 ## Why MergeMind
 
 Beginners often get no code review, or feedback that points out a problem without teaching anything. MergeMind focuses on explanation. It also tells users how much evidence supports each finding and what its scores do and don't mean.
@@ -12,15 +14,18 @@ Beginners often get no code review, or feedback that points out a problem withou
 
 ## Current features
 
-- **Code review:** paste code or upload a file, then choose a project and language.
+- **Accounts:** sign up and sign in with email and password through Supabase Auth. Each user sees only their own projects, reviews, findings and statistics.
+- **Projects:** create and rename projects. The project you select is used by default for new reviews.
+- **Code review:** paste code or upload a file, then choose one of your projects and a language.
 - **Pull request review:** paste a public GitHub pull request URL. MergeMind reviews the changed files one by one, focuses on the changed lines, and shows the repository, title, author, commit and each file's status. The page shows progress while files are reviewed.
 - **AI findings:** each finding has a category, severity, explanation, reason it matters, suggested fix, and line reference when available.
 - **Saved results:** a results page with severity counts, category filters, flagged code, and syntax-highlighted fixes.
+- **Finding outcomes:** mark each finding open, fixed, dismissed or false positive. "Fixed" is self-reported, not verified. MergeMind records who changed it and when.
 - **Review history:** search, status and language filters, pagination, and an issues-per-review chart. Filters stay in the URL.
 - **Confidence scores:** each finding shows how much evidence supports it.
 - **Merge risk scores:** each completed review gets a 0–100 score based on its findings.
 - **Project-aware review:** optionally attach a JSON snapshot of project files. MergeMind finds the files directly imported by the reviewed code and gives them to the AI as context.
-- **Learning page:** category counts, categories repeated across reviews, activity, and per-review counts, all calculated from saved reviews.
+- **Learning page:** category counts, categories repeated across reviews, activity and per-review counts, plus your finding outcomes by category. Everything is calculated from your saved reviews.
 - **Retry:** a failed review can be retried with its original code.
 - **Responsive dark interface:** a sidebar layout with keyboard support and error, loading and empty states.
 
@@ -36,6 +41,7 @@ Beginners often get no code review, or feedback that points out a problem withou
 | Frontend | React 18, Vite 5, React Router 6, highlight.js, custom CSS |
 | Backend | Python, FastAPI, SQLAlchemy 2, Pydantic 2, Uvicorn |
 | Database | PostgreSQL on Supabase |
+| Sign-in | Supabase Auth (`@supabase/supabase-js` in the browser; tokens verified with PyJWT against the project's public keys) |
 | AI | Anthropic Claude (`claude-haiku-4-5-20251001`), called only from the backend |
 | Testing | pytest, Vitest, Testing Library, jsdom |
 
@@ -47,7 +53,9 @@ React frontend (Vite, port 5173)
         |  JSON over HTTP
         v
 FastAPI backend (port 8000)
-  routes: health, users, projects, code_reviews, pull_request_reviews, review_history
+  auth middleware: verifies the Supabase access token on every request
+  routes: health, account, projects, code_reviews, pull_request_reviews, review_history
+          (each loads the signed-in user and checks project ownership)
         |
         |-- project_context_service   selects directly imported files
         |-- github_service            reads public pull requests (read-only)
@@ -68,6 +76,7 @@ backend/
     models/      SQLAlchemy models and Pydantic schemas
     routes/      API endpoints
     services/    AI review, context, confidence and risk logic
+    stage12/     Sign-in token checks, ownership helpers and /account routes
   tests/
 frontend/
   src/
@@ -77,6 +86,7 @@ frontend/
     lib/         Highlighting, formatting and learning calculations
     pages/       Routed pages
     services/    All backend API calls
+    stage12/     Sign-in screen, account context, projects, outcomes and learning
     test/        Frontend tests
 docs/            Project plan, usage guides, reviews and lessons learned
 ```
@@ -111,30 +121,44 @@ Selected code and context files are sent to Anthropic. Snapshots aren't saved wi
 | `/reviews/:reviewId` | Review results |
 | `/history` | Review history |
 | `/learning` | Learning page |
-| `/projects` | Read-only project list |
+| `/projects` | Create, rename and select projects |
+
+Every page needs a sign-in. The signed-in email and **Log out** are at the bottom of the sidebar.
 
 ## API endpoints
 
 Interactive API docs are available at `http://localhost:8000/docs` while the backend is running.
 
+Every endpoint except `/health` and the API docs needs `Authorization: Bearer <Supabase access token>`, and returns only the signed-in user's data. See [Supabase Auth setup](docs/supabase-auth.md).
+
 | Method | Path | Purpose |
 |---|---|---|
-| GET | `/health` | Health check |
-| GET, POST | `/users/` | List or create users |
-| GET, POST | `/projects/` | List or create projects |
+| GET | `/health` | Health check (no sign-in needed) |
+| GET | `/account/me` | The signed-in user; creates the local user on first sign-in |
+| GET, POST | `/account/projects` | List or create your projects |
+| GET, PATCH | `/account/projects/{id}` | Read or rename one of your projects |
+| GET | `/account/reviews/{id}/findings` | A review's findings and their outcomes |
+| PATCH | `/account/findings/{id}` | Set a finding's outcome: `open`, `fixed`, `dismissed` or `false_positive` |
+| GET | `/account/learning` | Your outcome and category statistics |
+| GET, POST | `/projects/` | List or create your projects (older endpoint) |
 | POST | `/code-reviews/` | Create and run a review |
 | POST | `/pull-request-reviews/` | Start a review of a public GitHub pull request (returns 202; poll the review for progress) |
-| GET | `/code-reviews/` | List all reviews with their issues |
+| GET | `/code-reviews/` | List your reviews with their issues |
 | GET | `/review-history/` | Paged review summaries with search and filters |
 | GET | `/review-history/stats` | Totals for the same filters |
 | GET | `/review-history/{id}` | One full review |
+
+The old `/users/` endpoints are disabled: users are created from verified sign-ins.
 
 `POST /code-reviews/` accepts `project_id`, `submitted_code`, `programming_language`, and optional `project_context`. See the [project-aware review guide](docs/project-aware-review.md) for the format and limits.
 
 | Response | Meaning |
 |---|---|
-| 404 | The project (or, for `POST /projects/`, the user) doesn't exist, or the pull request is missing or not public |
-| 409 | `POST /users/` was given an email that's already taken |
+| 401 | No sign-in token, or an invalid or expired one |
+| 403 | The `/users/` endpoints, or a sign-in without an email |
+| 404 | The project, review or finding doesn't exist or belongs to another user, or the pull request is missing or not public |
+| 409 | MergeMind already has data under this email, and an administrator must [link the account](docs/supabase-auth.md#accounts-created-before-stage-12). Also used when the same pull request is already being reviewed |
+| 429 | Over a server-wide limit: 30 manual reviews per hour, or 3 pull request reviews at once and 20 per hour |
 | 503 | `POST /pull-request-reviews/`: `GITHUB_TOKEN` isn't set, GitHub is unavailable, or GitHub's rate limit was reached |
 | 422 | Invalid input or a request over the size limits |
 | 200 with `review_status: "failed"` | The AI review failed or its answer was unusable; the review can be retried |
@@ -145,19 +169,22 @@ Interactive API docs are available at `http://localhost:8000/docs` while the bac
 
 - Node.js 18 or newer
 - Python 3.10 or newer
-- A [Supabase](https://supabase.com/) project
+- A [Supabase](https://supabase.com/) project, for the database and sign-in. Set up its Auth as described in [Supabase Auth setup](docs/supabase-auth.md): asymmetric JWT signing keys are required
 - An [Anthropic API key](https://console.anthropic.com/settings/keys)
 
 ### Environment variables
 
-Copy `backend/.env.example` to `backend/.env`. This file holds secrets and is ignored by Git, so never commit it.
+Copy `backend/.env.example` to `backend/.env`, and `frontend/.env.example` to `frontend/.env.local`. Both files are ignored by Git, so never commit them.
 
 | Variable | Required | Purpose |
 |---|---|---|
 | `DATABASE_URL` | Yes | PostgreSQL connection string |
+| `SUPABASE_URL` | Yes | `https://<project>.supabase.co`. The backend checks sign-in tokens against this project and refuses to start without it |
 | `ANTHROPIC_API_KEY` | For AI reviews | Without it, submissions save but end as `failed` |
 | `GITHUB_TOKEN` | For pull request reviews | A fine-grained token with read-only access to public repositories only. Server-side; never sent to the browser |
 | `AI_PROVIDER` | No | Defaults to `anthropic`, the only supported provider |
+| `VITE_SUPABASE_URL` | Yes (frontend) | The same project URL |
+| `VITE_SUPABASE_ANON_KEY` | Yes (frontend) | The project's publishable (anon) key. It is public by design; never use the secret or `service_role` key here |
 | `VITE_API_BASE_URL` | No | Frontend setting; defaults to `http://localhost:8000` |
 
 ### Database
@@ -197,13 +224,9 @@ If the server stops in the middle of a review, that review can stay `pending`. T
 
 ### First-run data
 
-A new database has no users or projects, and the app can't create them yet. With the backend running, create one of each:
+Sign up in the app, open **Projects**, and create a project. New Review asks you to create one first if you have none.
 
-```bash
-curl -X POST http://localhost:8000/users/ -H "Content-Type: application/json" -d "{\"name\":\"Test User\",\"email\":\"test@example.com\"}"
-
-curl -X POST http://localhost:8000/projects/ -H "Content-Type: application/json" -d "{\"user_id\":1,\"name\":\"Test Project\",\"description\":\"A test project\"}"
-```
+Reviews made before Stage 12 belong to users with no sign-in. Signing in with one of those emails shows "This account needs to be linked". An administrator can link it with `python -m app.link_account`, after checking who owns the account; see [Supabase Auth setup](docs/supabase-auth.md#accounts-created-before-stage-12).
 
 ### Frontend
 
@@ -227,7 +250,7 @@ npm test
 npm run build
 ```
 
-Tests use SQLite, mocked AI responses and a fake GitHub, so they don't need Supabase, an Anthropic key or a GitHub token. Migration tests also run against PostgreSQL when `MIGRATION_TEST_DATABASE_URL` points at a disposable local database. They drop every table there and refuse any non-local address, so never point it at Supabase.
+Tests use SQLite, mocked AI responses, a fake GitHub and test-signed sign-in tokens, so they don't need Supabase, an Anthropic key or a GitHub token. Migration tests and the Stage 12 access and first-sign-in tests also run against PostgreSQL when `MIGRATION_TEST_DATABASE_URL` points at a disposable local database. They drop every table there and refuse any non-local address, so never point it at Supabase.
 
 GitHub Actions ([`.github/workflows/ci.yml`](.github/workflows/ci.yml)) runs on every pull request and push to `main`:
 - backend tests on Ubuntu and Windows;
@@ -240,20 +263,21 @@ The full flow was verified live on 2026-11-05, against Supabase and the Anthropi
 
 ## Current limitations
 
-- **No authentication:** every endpoint is open, and anyone who can reach the API can read all reviews. Don't host this version or use it with private code.
-- **AI spending:** run the backend on `localhost` only (uvicorn's default; don't add `--host 0.0.0.0`). Pull request reviews are capped server-wide at 3 at once and 20 per hour, so at most 200 AI calls an hour. Manual reviews have no cap, so set a monthly spend limit in the Anthropic console.
+- **Not deployed:** sign-in and per-user access exist (Stage 12), but the backend still allows only `http://localhost:5173` as a browser origin, and nothing has been tested on a server. See the [pre-deployment checklist](docs/reviews/stage-12-accounts-feedback-review.md#before-deployment). Selected code is sent to Anthropic, so don't use private code.
+- **AI spending:** limits are server-wide, not per user: 30 manual reviews per hour, and for pull requests 3 at once and 20 per hour (at most 200 AI calls). One account can use up the allowance for everyone, so keep sign-up invite-only on a shared server. Also set a monthly spend limit in the Anthropic console.
+- **Sessions:** after **Log out**, an access token that was already issued stays valid until it expires (one hour by default).
 - **Public pull requests only:** no private repositories, OAuth or webhooks, and nothing is posted back to GitHub. Large pull requests are rejected rather than partly reviewed, and at most 10 files are reviewed.
 - **Background reviews:** pull request reviews run inside the backend process, without a job queue. If the server stops mid-review, the review stays `pending`; `python -m app.maintenance` finds it.
 - **No static analysis:** Semgrep and Bandit aren't integrated, so confidence doesn't yet separate strong findings from weak ones.
-- **No developer feedback:** findings can't be marked fixed, dismissed or false positive.
-- **Learning page is interim:** it shows category data, not per-developer progress. A repeated category doesn't prove the same mistake, and a lower count doesn't prove improvement.
+- **Outcomes are self-reported:** "Fixed" means the user said so; MergeMind doesn't check the code.
+- **Learning page is interim:** it shows category counts and outcomes for your own reviews, not a per-developer profile. It counts the project owner, not the code's author. A repeated category doesn't prove the same mistake, and a lower count doesn't prove improvement.
 - **AI findings can be wrong:** review them before acting on them. Line numbers come from the model and can be imperfect. Pull request files are sent with numbered lines, and impossible line numbers are dropped; in the live test this took exact lines from 1 of 5 to 5 of 6.
 - **Direct imports only:** project context doesn't follow imports recursively.
 - **Very long reviews:** if the AI's answer reaches its output limit, the review is saved as `failed` rather than partially. Submit less code and retry.
 
 ## Project status
 
-Stages 1–10 and a frontend redesign are complete. Stage 11 is complete and verified live, and its pull request is ready to merge.
+Stages 1–11 and a frontend redesign are complete and merged. Stage 12 is implemented and tested locally; its pull request isn't merged yet.
 
 | Stage | Title | Status |
 |---|---|---|
@@ -263,12 +287,12 @@ Stages 1–10 and a frontend redesign are complete. Stage 11 is complete and ver
 | 8 | PR Risk Scoring | Complete |
 | 9 | Project-Aware Review (supplied snapshots) | Complete |
 | 10 | Foundation and Stability | Complete: CI, migrations, reliability fixes, live verification |
-| 11 | GitHub Pull Request Integration | Complete: verified live on a demo PR |
-| 12 | Developer Feedback and Learning | Planned |
+| 11 | GitHub Pull Request Integration | Complete: verified live on a demo PR; merged (PR #13) |
+| 12 | Developer Feedback and Learning | Implemented locally on top of PR #15; **not merged**. Accounts, per-user data, projects, finding outcomes and Learning outcomes. Not verified against live Supabase yet |
 | 13 | Static Analysis Integration | Planned |
 | 14 | Evaluation and Final Demo | Planned |
 
-Planned work isn't available yet. It includes accounts with per-user data, finding outcomes, Semgrep and Bandit evidence, and a measured evaluation of review quality. See the full [project plan](docs/PROJECT_PLAN.md).
+Planned work isn't available yet. It includes Semgrep and Bandit evidence, and a measured evaluation of review quality. See the full [project plan](docs/PROJECT_PLAN.md).
 
 ## Contributors
 

@@ -29,3 +29,12 @@ def test_a_valid_supabase_url_starts_normally(monkeypatch):
     validate_auth_config()
     with TestClient(app) as client:
         assert client.get("/health").status_code == 200
+
+
+def test_the_old_open_users_endpoints_are_not_registered(monkeypatch):
+    """Users come only from verified sign-ins; /users/ could list every email."""
+    monkeypatch.setenv("SUPABASE_URL", "https://project.supabase.co")
+    assert not [route.path for route in app.routes if route.path.startswith("/users")]
+    with TestClient(app) as client:
+        for method in ("get", "post"):
+            assert getattr(client, method)("/users/").status_code == 403
