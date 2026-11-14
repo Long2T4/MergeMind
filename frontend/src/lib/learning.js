@@ -1,6 +1,6 @@
 // Learning-profile statistics derived from saved reviews (GET /code-reviews/).
-// Everything here is a count of what the AI review reported. Nothing tracks
-// whether a finding was fixed (Developer Feedback is planned for Stage 12).
+// Everything here is a count of what the AI review reported. Whether you
+// marked a finding fixed comes from the Stage 12 learning endpoint instead.
 import { normalizeCategory } from '../constants/categories'
 import { parseApiDate } from './format'
 

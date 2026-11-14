@@ -1,7 +1,9 @@
 
 import logging
+from datetime import datetime, timedelta
 
 from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy import func
 from sqlalchemy.orm import Session, joinedload
 
 from app.database.database import get_db
@@ -9,6 +11,7 @@ from app.models.models import CodeReview, Project, ReviewIssue
 from app.models.schemas import CodeReviewCreate, CodeReviewOut, ContextSummary
 from app.services.ai_review_service import build_review_payload, review_code
 from app.services.project_context_service import collect_project_context
+from app.stage12.security import CurrentUser, get_current_user, get_owned_project, owned_project_ids
 
 # Stage 7: Import confidence scoring function
 from app.services.confidence_service import calculate_confidence
@@ -19,9 +22,15 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/code-reviews", tags=["code-reviews"])
 
+# Each manual review makes one AI call; at most this many start per hour,
+# across all users (Stage 12, until there are per-user limits).
+MAX_MANUAL_REVIEWS_PER_HOUR = 30
+
 
 @router.post("/", response_model=CodeReviewOut)
-def create_code_review(review: CodeReviewCreate, db: Session = Depends(get_db)):
+def create_code_review(
+    review: CodeReviewCreate, db: Session = Depends(get_db), user: CurrentUser = Depends(get_current_user),
+):
     context = None
     summary = None
     context_input = review.project_context
@@ -53,9 +62,24 @@ def create_code_review(review: CodeReviewCreate, db: Session = Depends(get_db)):
         raise HTTPException(status_code=422, detail=str(error)) from error
 
     # Check before saving: a missing project would otherwise fail on the
-    # foreign key with an unhandled database error.
-    if db.get(Project, review.project_id) is None:
+    # foreign key with an unhandled database error. Stage 12: another user's
+    # project gets the same 404.
+    if get_owned_project(db, review.project_id, user.id) is None:
         raise HTTPException(status_code=404, detail="Project not found")
+
+    # Stage 12: bound AI spending across all users. Pull request reviews have
+    # their own limits (pr_review_service) and don't count here.
+    recent_manual = (
+        db.query(func.count(CodeReview.id))
+        .filter(CodeReview.pull_request_id.is_(None),
+                CodeReview.created_at >= datetime.utcnow() - timedelta(hours=1))
+        .scalar()
+    )
+    if recent_manual >= MAX_MANUAL_REVIEWS_PER_HOUR:
+        raise HTTPException(
+            status_code=429,
+            detail=f"MergeMind runs at most {MAX_MANUAL_REVIEWS_PER_HOUR} manual reviews per hour. Try again later.",
+        )
 
     def response():
         result = CodeReviewOut.model_validate(db_review)
@@ -125,10 +149,11 @@ def create_code_review(review: CodeReviewCreate, db: Session = Depends(get_db)):
 
 
 @router.get("/", response_model=list[CodeReviewOut])
-def list_code_reviews(db: Session = Depends(get_db)):
+def list_code_reviews(db: Session = Depends(get_db), user: CurrentUser = Depends(get_current_user)):
     return (
         db.query(CodeReview)
         .options(joinedload(CodeReview.issues))
+        .filter(CodeReview.project_id.in_(owned_project_ids(user.id)))
         .order_by(CodeReview.created_at.desc())
         .all()
     )

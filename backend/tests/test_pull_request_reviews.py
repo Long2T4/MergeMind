@@ -22,6 +22,7 @@ from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
 from app.database.database import Base, get_db, get_session_factory
+from auth_helpers import act_as
 from app.models.models import CodeReview, Project, PullRequest, PullRequestFile, ReviewIssue, User
 from app.routes import code_reviews, pull_request_reviews, review_history
 from app.services import pr_review_service
@@ -135,6 +136,7 @@ def env(monkeypatch):
         db.add(user)
         db.flush()
         project = Project(user_id=user.id, name="PR project")
+        owner_id = user.id
         db.add(project)
         db.commit()
         project_id = project.id
@@ -149,6 +151,7 @@ def env(monkeypatch):
             yield db
 
     app.dependency_overrides[get_db] = database
+    act_as(app, owner_id)
     app.dependency_overrides[get_session_factory] = lambda: factory
     app.dependency_overrides[get_github_client_factory] = lambda: (
         lambda: GitHubClient(TOKEN, transport=httpx.MockTransport(github.handler)))

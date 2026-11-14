@@ -3,7 +3,7 @@ import { CATEGORY_LABELS } from '../constants/categories'
 import {
   LANGUAGE_EXTENSIONS, LANGUAGE_LABELS, LANGUAGES, languageFromFileName,
 } from '../constants/languages'
-import { DEFAULT_PROJECT_ID } from '../constants/projects'
+import { getSelectedProjectId } from '../constants/projects'
 import Icon from './layout/Icon'
 import CodeEditor from './ui/CodeEditor'
 import ComingSoon from './ui/ComingSoon'
@@ -24,7 +24,7 @@ const ANALYZERS = [
 function CodeSubmitForm({ projects = [], initialValues = {}, onSubmit, isSubmitting, error }) {
   const [code, setCode] = useState(initialValues.code ?? '')
   const [language, setLanguage] = useState(initialValues.language ?? 'python')
-  const [projectId, setProjectId] = useState(initialValues.projectId ?? DEFAULT_PROJECT_ID)
+  const [projectId, setProjectId] = useState(initialValues.projectId ?? getSelectedProjectId() ?? '')
   const [fileName, setFileName] = useState(null)
   const [uploadError, setUploadError] = useState('')
   const fileInputRef = useRef(null)
@@ -55,16 +55,16 @@ function CodeSubmitForm({ projects = [], initialValues = {}, onSubmit, isSubmitt
     finally { setReadingContext(false) }
   }
 
-  // Keep the selection valid once the real project list arrives.
+  // A retry keeps its original project; otherwise the project selected on the
+  // Projects page. Fall back to the first project if that one isn't listed.
+  // The page only shows this form once the user has projects.
   useEffect(() => {
     if (projects.length > 0 && !projects.some((project) => project.id === Number(projectId))) {
       setProjectId(projects[0].id)
     }
   }, [projects, projectId])
 
-  const projectOptions = projects.length > 0
-    ? projects
-    : [{ id: DEFAULT_PROJECT_ID, name: 'Default project' }]
+  const projectOptions = projects
   const canSubmit = code.trim().length > 0 && !isSubmitting && !readingContext && !codeError
     && (!contextInput.enabled || (!contextError && !contextUploadError))
 

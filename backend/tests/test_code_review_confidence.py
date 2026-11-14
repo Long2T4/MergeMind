@@ -14,6 +14,7 @@ from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
 from app.database.database import Base, get_db
+from auth_helpers import act_as
 from app.models.models import User, Project, ReviewIssue
 from app.routes.code_reviews import router
 
@@ -33,6 +34,7 @@ def test_code_review_saves_confidence():
         db.flush()
 
         project = Project(user_id=user.id, name="Confidence Test Project")
+        owner_id = user.id
         db.add(project)
         db.commit()
         project_id = project.id
@@ -45,6 +47,7 @@ def test_code_review_saves_confidence():
             yield db
 
     app.dependency_overrides[get_db] = override_get_db
+    act_as(app, owner_id)
 
     sample_issues = [
         {

@@ -630,3 +630,10 @@
 @media (max-width: 640px) {
   .issue-card-file { max-width: 100%; }
 }
+
+/* Stage 12: the developer's outcome on each finding card. */
+.finding-status { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; margin-top: 16px; font-size: 13px; color: var(--text-muted); }
+.finding-status-label { font-weight: 600; color: var(--text); }
+.finding-status-select { width: auto; min-width: 200px; }
+.finding-status-saved { color: var(--success); }
+.finding-status-error { color: var(--high-text); }

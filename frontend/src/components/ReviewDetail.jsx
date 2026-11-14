@@ -152,12 +152,6 @@ function ReviewDetail({ review, projectName }) {
             </ul>
           )}
 
-          {issues.length > 0 && (
-            <p className="results-footnote">
-              Marking findings as fixed or as false positives isn't available yet.
-            </p>
-          )}
-
           {pr ? (
             <ChangedFiles pullRequest={pr} issueCounts={fileCounts} />
           ) : (

@@ -79,6 +79,9 @@ class ReviewIssueOut(BaseModel):
     confidence_level: str | None = None
     confidence_evidence: dict | None = None
     status: str
+    # Stage 12: who last changed the status (a user id), and when. Empty until changed.
+    status_updated_at: datetime | None = None
+    status_updated_by: int | None = None
     # Stage 11: True when a pull request finding is not on a changed line.
     outside_diff: bool | None = None
     created_at: datetime

@@ -1,7 +1,8 @@
 import { fireEvent, screen, waitFor } from '@testing-library/react'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import * as api from '../services/api'
-import { issue, mockApi, review } from './fixtures'
+import * as auth from '../stage12/auth'
+import { PROJECTS, issue, mockApi, review } from './fixtures'
 import { renderApp } from './utils'
 
 vi.mock('../services/api')
@@ -25,7 +26,17 @@ describe('Home dashboard', () => {
     expect(screen.queryByText(/fix rate/i)).not.toBeInTheDocument()
     expect(screen.queryByText(/false positives/i)).not.toBeInTheDocument()
     expect(screen.queryByText(/streak/i)).not.toBeInTheDocument()
-    expect(screen.getByText('Coming soon')).toBeInTheDocument()
+    // Stage 11 made pull request reviews available: no "Coming soon" card.
+    expect(screen.queryByText('Coming soon')).not.toBeInTheDocument()
+    expect(screen.queryByText(/GitHub integration isn't available/)).not.toBeInTheDocument()
+    expect(screen.getByRole('link', { name: /Review a PR/ })).toHaveAttribute('href', '/reviews/new')
+  })
+
+  it('opens New Review on the pull request form from the Home card', async () => {
+    renderApp('/')
+    fireEvent.click(await screen.findByRole('link', { name: /Review a PR/ }))
+    expect(await screen.findByLabelText('Pull request URL')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'GitHub pull request' })).toHaveAttribute('aria-pressed', 'true')
   })
 
   it('shows empty states when there are no reviews', async () => {
@@ -165,9 +176,13 @@ describe('Learning profile', () => {
 })
 
 describe('Projects', () => {
-  it('lists projects from the existing endpoint', async () => {
+  it("lists the signed-in user's projects from the Stage 12 account endpoint", async () => {
+    const spy = vi.spyOn(auth, 'accountRequest').mockResolvedValue(PROJECTS)
     renderApp('/projects')
-    expect(await screen.findByRole('heading', { level: 2, name: 'Login App' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { level: 1, name: 'Projects' })).toBeInTheDocument()
+    expect(await screen.findByText('Login App')).toBeInTheDocument()
     expect(screen.getByText('User authentication')).toBeInTheDocument()
+    expect(spy).toHaveBeenCalledWith('/projects')
+    spy.mockRestore()
   })
 })

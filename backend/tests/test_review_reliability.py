@@ -21,6 +21,7 @@ from sqlalchemy.pool import StaticPool
 
 from app import maintenance
 from app.database.database import Base, get_db
+from auth_helpers import act_as
 from app.models.models import CodeReview, Project, ReviewIssue, User
 from app.routes import code_reviews, projects, users
 
@@ -43,6 +44,7 @@ def api(monkeypatch):
         db.add(user)
         db.flush()
         project = Project(user_id=user.id, name="Reliability project")
+        owner_id = user.id
         db.add(project)
         db.commit()
         project_id = project.id
@@ -56,6 +58,7 @@ def api(monkeypatch):
             yield db
 
     app.dependency_overrides[get_db] = database
+    act_as(app, owner_id)
     provider = MagicMock()
     with patch("app.services.ai_review_service.Anthropic", return_value=provider) as client_class:
         with TestClient(app, raise_server_exceptions=False) as client:

@@ -6,6 +6,7 @@ import FormattedText from './FormattedText'
 import Icon from './layout/Icon'
 import SeverityBadge from './SeverityBadge'
 import CodeBlock from './ui/CodeBlock'
+import FindingStatusControl from '../stage12/FindingStatusControl'
 
 // `snippet` overrides the flagged-code lookup (pull request findings point
 // into a changed file's diff rather than the stored code).
@@ -88,6 +89,7 @@ function IssueCard({ issue, code, language, snippet, defaultExpanded = false }) 
         )}
 
         <ConfidenceMeter issue={issue} />
+        <FindingStatusControl issueId={issue.id} status={issue.status} updatedAt={issue.status_updated_at} />
       </div>
     </li>
   )

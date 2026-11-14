@@ -14,6 +14,7 @@ from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
 from app.database.database import Base, get_db
+from auth_helpers import act_as
 from app.models.models import CodeReview, Project, User
 from app.routes.code_reviews import router
 
@@ -30,6 +31,7 @@ def review_api(monkeypatch):
         db.add(user)
         db.flush()
         project = Project(user_id=user.id, name="Context integration")
+        owner_id = user.id
         db.add(project)
         db.commit()
         project_id = project.id
@@ -41,6 +43,7 @@ def review_api(monkeypatch):
             yield db
 
     app.dependency_overrides[get_db] = database
+    act_as(app, owner_id)
     provider = MagicMock()
     provider.messages.create.return_value = SimpleNamespace(content=[SimpleNamespace(text=json.dumps({"issues": [{
         "title": "Validate the submitted value", "category": "input_validation", "severity": "medium",

@@ -13,6 +13,7 @@ from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
 from app.database.database import Base, get_db
+from auth_helpers import act_as
 from app.models.models import User, Project, CodeReview, ReviewIssue
 from app.routes.review_history import router
 
@@ -29,6 +30,7 @@ def make_client():
         db.add(user)
         db.flush()
         project = Project(user_id=user.id, name="History Project")
+        owner_id = user.id
         db.add(project)
         db.flush()
         review = CodeReview(
@@ -58,6 +60,7 @@ def make_client():
             yield session
 
     app.dependency_overrides[get_db] = override_get_db
+    act_as(app, owner_id)
     return TestClient(app), engine
 
 

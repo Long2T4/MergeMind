@@ -10,18 +10,18 @@ MergeMind is a university senior capstone and resume project, not a commercial p
 
 ## Current status
 
-Last verified on 2026-11-09 on branch `stage-11/github-pr-review` (from `main` `aa329b9`). Stage 11 is implemented locally and not yet merged.
+Last verified on 2026-11-13 on PR #15's branch `feature/stage-12-auth-feedback-learning`, which contains `main` at `d0cf689`. **Stage 12 is implemented and tested locally but not merged:** PR #15 is still open.
 
 | Item | Status |
 |---|---|
-| Stages 1–10 | Complete |
+| Stages 1–11 | Complete and merged (Stage 11: PR #13, `d0cf689`) |
 | Frontend redesign | Complete |
-| Current stage | **Stage 11: GitHub Pull Request Integration**: complete and verified live; ready to merge (PR #13) |
-| Backend tests | 245 passed, 12 PostgreSQL-only tests skipped locally (they run in CI) |
-| Frontend tests | 87 passed |
+| Current stage | **Stage 12: Developer Feedback and Learning**: implemented and tested locally; **PR #15 not merged**; not verified against live Supabase |
+| Backend tests | 427 passed, 2 skipped with a local PostgreSQL; 366 passed, 63 PostgreSQL-only skipped on SQLite (as in CI) |
+| Frontend tests | 106 passed |
 | Production build | Passed |
-| CI | All 4 jobs pass on pull requests and on `main` |
-| Database migrations | `0001`–`0003` applied to Supabase on 2026-11-05; `0004_pull_requests` applied on 2026-11-09. Schema matches the Stage 11 models |
+| CI | All 4 jobs pass on `main`. The Stage 12 branch hasn't run in CI yet |
+| Database migrations | `0001`–`0004` applied to Supabase (the last on 2026-11-09). `0005_stage12_accounts_feedback` is written and tested but **not applied** |
 | Live Supabase and Anthropic verification | Passed on 2026-11-05 (reviews #13 and #14) |
 | Deployment | None; local only |
 
@@ -223,6 +223,21 @@ Stages 11, 12 and 13 can run mostly in parallel after Stage 10, if each has a cl
 
 **Out of scope:** teams and roles, developer identity mapping, XP, levels, streaks, invented improvement scores, complex analytics.
 
+**Progress (2026-11-13):** implemented by bhavesh70655 in PR #15. Long Truong fixed and completed it in the same pull request. **Not merged.** See the [Stage 12 report](reviews/stage-12-accounts-feedback-review.md) and [Supabase Auth setup](supabase-auth.md).
+
+| Task | Status |
+|---|---|
+| Authentication | Done locally: Supabase Auth email sign-in. The backend verifies asymmetric tokens (RS256/ES256) against the project's public keys and refuses to start without `SUPABASE_URL` |
+| Per-user data protection | Done locally: explicit ownership checks in every route; two-user tests on SQLite and PostgreSQL; background PR reviews need no request context |
+| Existing data | Never linked by email. An admin links an existing user with `python -m app.link_account` (dry run by default) |
+| Project management | Done locally: create, rename and select a project; New Review uses the selected project |
+| Finding outcomes | Done locally: `open`, `fixed` (self-reported), `dismissed`, `false_positive` on each finding card. Who changed it and when are saved, and owner-only updates are validated |
+| Learning outcomes | Done locally: outcomes by category, traceable to saved findings |
+| Migration `0005` | Written and tested on SQLite and PostgreSQL; **not applied to Supabase** |
+| AI spending limits | Server-wide: 30 manual reviews per hour; PR reviews 3 at once and 20 per hour |
+| Browser check | Done locally with a fake Auth server and mocked AI and GitHub, at desktop and phone widths |
+| Live verification | Not done: needs Supabase Auth set up, `0005` applied with approval, and a real sign-in |
+
 ### Stage 13: Static Analysis Integration
 
 **Goal:** back findings with evidence from non-AI tools.
@@ -299,10 +314,10 @@ Don't cut Stage 10, Stage 11, the evaluation, or the demo.
 | Public PR URL review | Done; verified live | Stage 11 |
 | Automatic GitHub context | Done: direct imports read at the PR's head commit | Stage 11 |
 | Repository, PR and author display | Done | Stage 11 |
-| Authentication and data isolation | Not implemented | Stage 12 |
-| Project creation UI | API exists; UI is read-only | Stage 12 |
-| Developer Feedback | `status` column only | Stage 12 |
-| Learning outcomes | Interim page, no outcomes | Stage 12 |
+| Authentication and data isolation | Done locally; PR #15 not merged | Stage 12 |
+| Project creation UI | Done locally (create, rename, select); not merged | Stage 12 |
+| Developer Feedback | Done locally (outcomes on each finding); not merged | Stage 12 |
+| Learning outcomes | Done locally (outcomes by category); not merged | Stage 12 |
 | Semgrep and Bandit | Not implemented | Stage 13 |
 | Evidence-based confidence | Formula exists, AI evidence only | Stage 13 |
 | Quality evaluation | Not implemented | Stage 14 |
@@ -337,7 +352,13 @@ Don't cut Stage 10, Stage 11, the evaluation, or the demo.
 - Private code isn't supported.
 - Remember that selected code is sent to the AI provider.
 
-The app has no authentication today, so `GET /review-history/{id}` makes it easy to walk through every review. `/stats?q=` also reveals whether saved code contains a given string. Search is an unindexed scan, and `GET /code-reviews/` is unbounded. Stage 12 addresses access. Stage 14 must address request limits before any public deployment.
+On `main`, the app has no authentication, so `GET /review-history/{id}` makes it easy to walk through every review. `/stats?q=` also reveals whether saved code contains a given string. Stage 12, not merged yet, limits every route to the signed-in user's own data, so these work only on your own reviews. Search is still an unindexed scan, and `GET /code-reviews/` is unbounded per user. Before any deployment, also complete the [Stage 12 checklist](reviews/stage-12-accounts-feedback-review.md#before-deployment):
+- invite-only sign-up;
+- email confirmation;
+- Row Level Security on every table;
+- a configurable CORS origin.
+
+Every new route must depend on `get_current_user` and filter by the user's projects.
 
 ### Testing
 
@@ -397,7 +418,7 @@ Developer Learning is a permanent project goal. It was recorded early so it woul
 5. Show counts and improvement trends over time.
 6. Provide a per-developer Learning Profile.
 
-**Status:** item 2 is complete. Item 3 is planned for Stage 12. Item 5 is limited to real counts and outcomes. Items 1, 4 and 6 aren't fully implemented.
+**Status:** item 2 is complete. Item 3 is implemented in Stage 12, which isn't merged yet; "fixed" is self-reported. Item 5 is limited to real counts and outcomes. Items 1, 4 and 6 aren't fully implemented.
 
 **Capstone scope:** Stage 12 improves the existing Learning page with real outcomes instead of building the full profile. The full requirement remains the long-term goal. See Open question 3.
 
@@ -410,11 +431,11 @@ The early MVP reviewed one pasted file. The final goal is project-aware review o
 ## Open questions
 
 1. **Stage owners:** who owns Stages 10–14, and when is the final demo? Owners are TBD.
-2. **Developer Feedback ownership:** `CLAUDE.md` assigns "Review History & Feedback" to a groupmate, but Feedback wasn't built and is now planned for Stage 12.
+2. **Developer Feedback ownership:** `CLAUDE.md` assigns "Review History & Feedback" to a groupmate. Feedback was built in Stage 12 (PR #15 by bhavesh70655, completed by Long Truong). Update `CLAUDE.md` if ownership has changed.
 3. **Developer Learning:** the plan has reduced its capstone scope. The whole team should confirm this.
-4. **Existing data:** which user should own existing Supabase rows in Stage 12?
+4. **Existing data:** which user should own existing Supabase rows in Stage 12? They are never claimed by email. An admin links the right person with `python -m app.link_account` once the team decides.
 5. **Schema state:** how were Stage 7 columns added to Supabase, and does the live schema match the models? PR #4 says Stage 8 columns were added by hand. Inspect this before the migration baseline.
-6. **Database security:** is Row Level Security configured in Supabase?
+6. **Database security:** Row Level Security was on for every app table on 2026-11-05, and `0003`/`0004` protect the tables they add. Stage 12 makes this essential, because the publishable key ships in the frontend. Check it again before deploying.
 7. **License:** the repository is public but has no license. Does the team want one?
 8. **Pull request reviews:** none of PRs #1–#8 has a recorded GitHub review. Does the team want to require one?
 
