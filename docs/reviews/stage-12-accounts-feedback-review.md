@@ -1,6 +1,6 @@
 # Stage 12: Accounts, Developer Feedback and Learning — Review Summary
 
-**Status:** implemented and tested locally on `fix/stage-12-pr15`, **not merged**. Not verified against live Supabase: migration `0005` hasn't been applied there, and no real Supabase Auth project has been configured.
+**Status:** implemented and tested in PR #15 (branch `feature/stage-12-auth-feedback-learning`), **not merged**. Not verified against live Supabase: migration `0005` hasn't been applied there, and no real Supabase Auth project has been configured.
 
 ## What was implemented
 

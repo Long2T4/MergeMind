@@ -4,7 +4,7 @@ MergeMind is an AI code review platform for students and junior developers. It r
 
 MergeMind is a university senior capstone project built by a student team. It runs locally today. It has not been deployed, and it isn't ready to host private code (see [Current limitations](#current-limitations)).
 
-> **Stage 12 (accounts, finding outcomes and learning) is described below but not merged yet.** It is on the `fix/stage-12-pr15` branch, which builds on pull request [#15](https://github.com/Long2T4/MergeMind/pull/15). On `main`, the app has no sign-in.
+> **Stage 12 (accounts, finding outcomes and learning) is described below but not merged yet.** It is in pull request [#15](https://github.com/Long2T4/MergeMind/pull/15) (branch `feature/stage-12-auth-feedback-learning`). On `main`, the app has no sign-in.
 
 ## Why MergeMind
 

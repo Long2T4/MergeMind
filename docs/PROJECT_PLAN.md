@@ -10,7 +10,7 @@ MergeMind is a university senior capstone and resume project, not a commercial p
 
 ## Current status
 
-Last verified on 2026-11-13 on branch `fix/stage-12-pr15`. It builds on PR #15 (`d5f400f`) and contains `main` at `d0cf689`. **Stage 12 is implemented and tested locally but not merged:** PR #15 is still open.
+Last verified on 2026-11-13 on PR #15's branch `feature/stage-12-auth-feedback-learning`, which contains `main` at `d0cf689`. **Stage 12 is implemented and tested locally but not merged:** PR #15 is still open.
 
 | Item | Status |
 |---|---|
@@ -223,7 +223,7 @@ Stages 11, 12 and 13 can run mostly in parallel after Stage 10, if each has a cl
 
 **Out of scope:** teams and roles, developer identity mapping, XP, levels, streaks, invented improvement scores, complex analytics.
 
-**Progress (2026-11-13):** implemented by bhavesh70655 in PR #15. Long Truong fixed and completed it on `fix/stage-12-pr15`. **Not merged.** See the [Stage 12 report](reviews/stage-12-accounts-feedback-review.md) and [Supabase Auth setup](supabase-auth.md).
+**Progress (2026-11-13):** implemented by bhavesh70655 in PR #15. Long Truong fixed and completed it in the same pull request. **Not merged.** See the [Stage 12 report](reviews/stage-12-accounts-feedback-review.md) and [Supabase Auth setup](supabase-auth.md).
 
 | Task | Status |
 |---|---|
