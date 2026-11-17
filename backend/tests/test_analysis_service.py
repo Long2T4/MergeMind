@@ -161,5 +161,6 @@ def test_merged_findings_confidence_score():
 
     confidence = calculate_confidence(merged[0]["evidence"])
 
-    assert confidence["confidence_score"] == 45
-    assert confidence["confidence_level"] == "low"
+    # Stage 13 weights: AI + one scanner is medium.
+    assert confidence["confidence_score"] == 50
+    assert confidence["confidence_level"] == "medium"

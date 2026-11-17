@@ -151,8 +151,8 @@ def test_manual_review_combines_ai_and_semgrep():
                 issues = reviews.json()[0]["issues"]
 
                 assert len(issues) == 1
-                assert issues[0]["confidence_score"] == 45
-                assert issues[0]["confidence_level"] == "low"
+                assert issues[0]["confidence_score"] == 50
+                assert issues[0]["confidence_level"] == "medium"
                 assert issues[0]["confidence_evidence"] == {
                     "ai": True,
                     "semgrep": True,
@@ -161,7 +161,7 @@ def test_manual_review_combines_ai_and_semgrep():
         with session_factory() as db:
             saved_issue = db.query(ReviewIssue).one()
 
-            assert saved_issue.confidence_score == 45
+            assert saved_issue.confidence_score == 50
             assert saved_issue.confidence_evidence == {
                 "ai": True,
                 "semgrep": True,
