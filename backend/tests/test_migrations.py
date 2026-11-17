@@ -325,6 +325,36 @@ def test_scanner_status_migration_can_be_reversed_without_losing_reviews(engine)
     migrate(engine)
     assert schema_differences(engine) == []
 
+
+def test_stage_13_database_gains_beginner_explanations_and_keeps_findings(engine):
+    migrate(engine, "0006_review_analysis_status")
+    _seed_stage_10_review(engine)
+    assert "beginner_explanation" not in _columns(engine, "review_issues")
+
+    migrate(engine)
+
+    assert current_revision(engine) == HEAD
+    with engine.connect() as connection:
+        row = connection.execute(text("SELECT explanation, status, beginner_explanation FROM review_issues")).one()
+    assert tuple(row) == ("Kept finding", "open", None)  # nothing generated or changed
+    assert schema_differences(engine) == []
+
+
+def test_beginner_explanation_migration_can_be_reversed_without_losing_findings(engine):
+    migrate(engine)
+    _seed_stage_10_review(engine)
+    with engine.begin() as connection:
+        connection.execute(text("UPDATE review_issues SET beginner_explanation = :value"),
+                           {"value": '{"what_is_wrong": "x", "why_it_matters": "y", "before": "a", "after": "b"}'})
+
+    migrate(engine, "0006_review_analysis_status", downgrade=True)
+    assert "beginner_explanation" not in _columns(engine, "review_issues")
+    with engine.connect() as connection:
+        assert connection.execute(text("SELECT explanation FROM review_issues")).scalar_one() == "Kept finding"
+
+    migrate(engine)
+    assert schema_differences(engine) == []
+
 @pytest.fixture
 def postgres(engine):
     if engine.dialect.name != "postgresql":
