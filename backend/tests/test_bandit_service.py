@@ -30,7 +30,10 @@ def test_normalize_high_severity_finding():
     result = normalize_bandit_finding(sample_bandit_finding())
 
     assert result is not None
-    assert result["title"].startswith("B602:")
+    # B602 is a known kind: a readable title and fix instead of "B602: ...".
+    assert result["title"] == "Command run through a shell"
+    assert "shell=True" in result["suggested_fix"]
+    assert result["kind"] == "shell-injection"
     assert result["category"] == "security"
     assert result["severity"] == "high"
     assert result["line_number"] == 4

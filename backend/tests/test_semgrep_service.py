@@ -19,7 +19,9 @@ def test_high_severity_finding():
     result = normalize_semgrep_finding(finding)
 
     assert result is not None
-    assert result["title"] == "python.security.eval-detected"
+    # No MergeMind kind in its metadata: the title is the message's first
+    # sentence, not the raw rule ID.
+    assert result["title"] == "Detected use of eval()"
     assert result["category"] == "security"
     assert result["severity"] == "high"
     assert result["line_number"] == 5
