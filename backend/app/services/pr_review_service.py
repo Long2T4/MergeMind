@@ -15,6 +15,12 @@ from sqlalchemy.orm import Session
 
 from app.models.models import CodeReview, PullRequest, PullRequestFile, ReviewIssue
 from app.services.ai_review_service import review_code
+from app.services.analysis_service import (
+    analysis_status,
+    collect_security_findings,
+    combine_statuses,
+    merge_findings,
+)
 from app.services.confidence_service import calculate_confidence
 from app.services.diff_service import changed_lines, focus_findings, language_for_path, line_count, skip_reason
 from app.services.github_service import FileTooLarge, GitHubClient, PullRequestRef
@@ -205,24 +211,96 @@ def _context_for(client, ref, pull_request, path, code, tree, budget):
         return None
 
 
+
 def _review_file(client, ref, pull_request, changed_file, tree, budget):
-    """Returns (skip_reason, findings). skip_reason is None if the file was reviewed."""
+    """Review one changed file using Claude, Semgrep, and Bandit.
+
+    Returns (skip_reason, findings, scanner_status); skip_reason is None if
+    the file was reviewed, and scanner_status is None if it was skipped.
+    """
+
     if tree.get(changed_file.path, 0) > MAX_FILE_CHARS:
-        return "too_large", []
+        return "too_large", [], None
+
     try:
-        # Capped while downloading: a truncated tree may not list this file's size.
-        code = client.get_file_text(ref, changed_file.path, pull_request.head_sha, max_chars=MAX_FILE_CHARS)
+        code = client.get_file_text(
+            ref,
+            changed_file.path,
+            pull_request.head_sha,
+            max_chars=MAX_FILE_CHARS,
+        )
     except FileTooLarge:
-        return "too_large", []
+        return "too_large", [], None
+
     if code is None:
-        return "binary", []
-    context = _context_for(client, ref, pull_request, changed_file.path, code, tree, budget)
-    lines = changed_lines(changed_file.patch)
-    issues = review_code(
-        code, changed_file.language, project_context=context,
-        file_path=changed_file.path, changed_lines=sorted(lines),
+        return "binary", [], None
+
+    context = _context_for(
+        client,
+        ref,
+        pull_request,
+        changed_file.path,
+        code,
+        tree,
+        budget,
     )
-    return None, focus_findings(issues, lines, line_count=line_count(code))
+
+    lines = changed_lines(changed_file.patch)
+
+    # Stage 11: Analyze the changed file with Claude.
+    ai_issues = review_code(
+        code,
+        changed_file.language,
+        project_context=context,
+        file_path=changed_file.path,
+        changed_lines=sorted(lines),
+    )
+
+    # Stage 13: Collect Semgrep and Bandit findings.
+    scanner_status = {"semgrep": "failed", "bandit": "failed"}
+    try:
+        security_analysis = collect_security_findings(
+            code,
+            changed_file.language,
+        )
+        scanner_status = analysis_status(security_analysis)
+
+        semgrep_issues = security_analysis["semgrep"]
+        bandit_issues = security_analysis["bandit"]
+
+        # Merge findings while retaining scanner evidence.
+        combined_issues = merge_findings(
+            ai_issues,
+            semgrep_issues,
+            bandit_issues,
+        )
+
+    except Exception:
+        logger.exception(
+            "Security analysis failed for PR file %s; "
+            "continuing with Claude findings.",
+            changed_file.path,
+        )
+
+        # Scanner results, if any, weren't used.
+        scanner_status = {"semgrep": "failed", "bandit": "failed"}
+        combined_issues = [
+            {
+                **issue,
+                "evidence": {"ai": True},
+            }
+            for issue in ai_issues
+        ]
+
+    # Stage 11: Keep only findings on changed lines.
+    focused_issues = focus_findings(
+        combined_issues,
+        lines,
+        line_count=line_count(code),
+    )
+
+    return None, focused_issues, scanner_status
+
 
 
 def _review_files(db: Session, review_id: int, client: GitHubClient) -> None:
@@ -234,29 +312,42 @@ def _review_files(db: Session, review_id: int, client: GitHubClient) -> None:
     tree = client.get_tree(ref, pull_request.head_sha)
     budget = _FetchBudget(MAX_CONTEXT_FETCHES)
     found = []
+    scanner_statuses = []  # Stage 13: one per reviewed file
 
     pending_ids = [f.id for f in pull_request.files if f.review_state == "pending"]
     for file_id in pending_ids:
         changed_file = db.get(PullRequestFile, file_id)
         try:
-            reason, issues = _review_file(client, ref, pull_request, changed_file, tree, budget)
-            for issue in issues:
-                evidence = {"ai": True}
+            reason, issues, scanner_status = _review_file(client, ref, pull_request, changed_file, tree, budget)
+
+            for merged_issue in issues:
+                issue = merged_issue.copy()
+
+                evidence = issue.pop(
+                    "evidence",
+                    {"ai": True},
+                )
+
                 confidence = calculate_confidence(evidence)
-                db.add(ReviewIssue(
-                    review_id=review_id,
-                    file_name=changed_file.path,
-                    **issue,
-                    confidence_score=confidence["confidence_score"],
-                    confidence_level=confidence["confidence_level"],
-                    confidence_evidence=evidence,
-                ))
+
+                db.add(
+                    ReviewIssue(
+                        review_id=review_id,
+                        file_name=changed_file.path,
+                        **issue,
+                        confidence_score=confidence["confidence_score"],
+                        confidence_level=confidence["confidence_level"],
+                        confidence_evidence=evidence,
+                    )
+                )
+
             changed_file.review_state = "skipped" if reason else "reviewed"
             changed_file.skip_reason = reason
             db.commit()  # one commit per file, so progress is visible while it runs
             found.extend(issues)
+            if scanner_status:
+                scanner_statuses.append(scanner_status)
         except Exception:
-            # One file's failure (AI, GitHub or database) doesn't stop the others.
             logger.exception("Reviewing a pull request file failed for code review id=%s", review_id)
             db.rollback()
             changed_file = db.get(PullRequestFile, file_id)
@@ -264,6 +355,7 @@ def _review_files(db: Session, review_id: int, client: GitHubClient) -> None:
             db.commit()
 
     review = db.get(CodeReview, review_id)
+    review.analysis_status = combine_statuses(scanner_statuses)
     if any(f.review_state == "reviewed" for f in review.pull_request.files):
         risk = calculate_risk(found)
         review.risk_score = risk["risk_score"]

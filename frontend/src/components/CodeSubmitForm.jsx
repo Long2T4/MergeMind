@@ -16,8 +16,9 @@ const SHORTCUT = IS_MAC ? '⌘↵' : 'Ctrl ↵'
 
 const ANALYZERS = [
   { name: 'AI reasoning', available: true },
-  { name: 'Semgrep', available: false },
-  { name: 'Bandit', available: false },
+  // Stage 13: Python only. Results show whether they ran on this server.
+  { name: 'Semgrep', available: true, scope: 'Python' },
+  { name: 'Bandit', available: true, scope: 'Python' },
   { name: 'ESLint', available: false },
 ]
 
@@ -209,7 +210,7 @@ function CodeSubmitForm({ projects = [], initialValues = {}, onSubmit, isSubmitt
               <li key={analyzer.name}>
                 <span className="mono">{analyzer.name}</span>
                 {analyzer.available
-                  ? <span className="analyzer-on">● on</span>
+                  ? <span className="analyzer-on">{analyzer.scope ? `● ${analyzer.scope}` : '● on'}</span>
                   : <span className="analyzer-off">○ not available yet</span>}
               </li>
             ))}

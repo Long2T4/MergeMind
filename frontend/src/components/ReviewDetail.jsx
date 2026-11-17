@@ -5,6 +5,7 @@ import { countLines } from '../lib/code'
 import { pluralize } from '../lib/format'
 import { diffContext } from '../lib/pullRequest'
 import IssueCard from './IssueCard'
+import AnalyzerStatus from './AnalyzerStatus'
 import IssueLocations from './IssueLocations'
 import Icon from './layout/Icon'
 import { ChangedFiles, PullRequestHeader } from './PullRequestDetails'
@@ -172,6 +173,7 @@ function ReviewDetail({ review, projectName }) {
 
         <aside className="results-aside" aria-label="Review analysis">
           <RiskScoreCard review={review} />
+          <AnalyzerStatus review={review} />
           {/* Line positions only make sense within a single submitted file. */}
           {issues.length > 0 && !pr && <IssueLocations issues={issues} code={review.submitted_code} />}
           <section className="card learning-link-card">

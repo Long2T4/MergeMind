@@ -10,18 +10,18 @@ MergeMind is a university senior capstone and resume project, not a commercial p
 
 ## Current status
 
-Last verified on 2026-11-13 on PR #15's branch `feature/stage-12-auth-feedback-learning`, which contains `main` at `d0cf689`. **Stage 12 is implemented and tested locally but not merged:** PR #15 is still open.
+Last verified on 2026-11-17 on `fix/stage-13-pr16`, which builds on PR #16 (`edfdcbe`) and `main` at `04bec03`. **Stage 13 is implemented and tested but not merged:** PR #16 is still open.
 
 | Item | Status |
 |---|---|
-| Stages 1–11 | Complete and merged (Stage 11: PR #13, `d0cf689`) |
+| Stages 1–12 | Complete and merged (Stage 12: PR #15, `04bec03`) |
 | Frontend redesign | Complete |
-| Current stage | **Stage 12: Developer Feedback and Learning**: implemented and tested locally; **PR #15 not merged**; not verified against live Supabase |
-| Backend tests | 427 passed, 2 skipped with a local PostgreSQL; 366 passed, 63 PostgreSQL-only skipped on SQLite (as in CI) |
-| Frontend tests | 106 passed |
+| Current stage | **Stage 13: Static Analysis Integration**: implemented and tested; **PR #16 not merged** |
+| Backend tests | Windows + local PostgreSQL: 506 passed, 6 skipped (4 need Semgrep, which doesn't run on Windows). Linux with real Semgrep and Bandit, no network: 447 passed, 65 PostgreSQL-only skipped |
+| Frontend tests | 111 passed |
 | Production build | Passed |
-| CI | All 4 jobs pass on `main`. The Stage 12 branch hasn't run in CI yet |
-| Database migrations | `0001`–`0004` applied to Supabase (the last on 2026-11-09). `0005_stage12_accounts_feedback` is written and tested but **not applied** |
+| CI | All 4 jobs pass on `main`. The Stage 13 fixes haven't run in CI yet |
+| Database migrations | `0001`–`0004` applied to Supabase (the last on 2026-11-09). `0005_stage12_accounts_feedback` and `0006_review_analysis_status` are written and tested but **not applied** |
 | Live Supabase and Anthropic verification | Passed on 2026-11-05 (reviews #13 and #14) |
 | Deployment | None; local only |
 
@@ -57,9 +57,9 @@ The stage numbers below describe what was actually built. They replace the [orig
 - History filters and page are kept in the URL.
 
 **Stage 7: Confidence Scoring**
-- Weights: AI 20, Semgrep 25, Bandit 20, failed test 20, git history 10, dependency 5.
-- Levels: high at 80 or above, medium at 50 or above, otherwise low.
-- Only AI evidence exists today, so every new finding scores 20/low.
+- Weights (changed in Stage 13): AI 20, Semgrep 30, Bandit 30, failed test 20, git history 10, dependency 5, capped at 100.
+- Levels: high at 80 or above, medium at 50 or above, otherwise low. AI alone is low, AI plus one scanner medium, all three high.
+- Findings saved before Stage 13 keep their stored scores.
 - The score measures supporting evidence, not the probability a finding is correct.
 
 **Stage 8: PR Risk Scoring**
@@ -223,7 +223,7 @@ Stages 11, 12 and 13 can run mostly in parallel after Stage 10, if each has a cl
 
 **Out of scope:** teams and roles, developer identity mapping, XP, levels, streaks, invented improvement scores, complex analytics.
 
-**Progress (2026-11-13):** implemented by bhavesh70655 in PR #15. Long Truong fixed and completed it in the same pull request. **Not merged.** See the [Stage 12 report](reviews/stage-12-accounts-feedback-review.md) and [Supabase Auth setup](supabase-auth.md).
+**Progress (2026-11-13):** implemented by bhavesh70655 in PR #15. Long Truong fixed and completed it in the same pull request. Merged (`04bec03`); migration `0005` isn't applied to Supabase yet. See the [Stage 12 report](reviews/stage-12-accounts-feedback-review.md) and [Supabase Auth setup](supabase-auth.md).
 
 | Task | Status |
 |---|---|
@@ -265,6 +265,20 @@ Stages 11, 12 and 13 can run mostly in parallel after Stage 10, if each has a cl
 **Risks:** Semgrep's native Windows support needs checking first, and WSL or Docker may be required. Tool output can be noisy.
 
 **Out of scope:** ESLint (optional future work), auto-fixing, running tests.
+
+**Progress (2026-11-17):** implemented by Yudith Vazquez-Jacinto in PR #16 (`edfdcbe`). Long Truong completed the integration in the same pull request. **Not merged.** See the [Stage 13 report](reviews/stage-13-static-analysis-review.md).
+
+| Task | Status |
+|---|---|
+| Semgrep and Bandit integration | Done. Bandit 1.9.4 is in `requirements.txt`. Semgrep 1.184.0 conflicts with the backend's dependencies, so it's installed separately (`requirements-semgrep.txt`, pipx); Windows needs WSL |
+| Rules | Semgrep uses MergeMind's own 7 rules (`backend/app/analysis_rules/semgrep-python.yml`), so it works offline. Bandit skips 5 noisy checks |
+| Normalization | Readable titles and fixes for each kind of vulnerability (`finding_kinds.py`) |
+| Combining findings | One finding per problem: merged when the kind matches and the lines are at most 1 apart; unknown kinds never merge |
+| Confidence | AI + one scanner is medium; all three high (see Stage 7 notes) |
+| Showing tool support | Evidence labels on each finding (Stage 7 UI), and a "Static analysis" card with each scanner's status |
+| Tool failures | A missing, failed or timed-out scanner never fails the review; it's saved as `unavailable` or `failed` (migration `0006`) |
+| Acceptance tests | Real Semgrep and Bandit find all 8 problems in `tests/fixtures/stage13/vulnerable.py` and nothing in `clean.py`; required in CI on Ubuntu |
+| Languages | Python only |
 
 ### Stage 14: Evaluation and Final Demo
 
@@ -314,12 +328,12 @@ Don't cut Stage 10, Stage 11, the evaluation, or the demo.
 | Public PR URL review | Done; verified live | Stage 11 |
 | Automatic GitHub context | Done: direct imports read at the PR's head commit | Stage 11 |
 | Repository, PR and author display | Done | Stage 11 |
-| Authentication and data isolation | Done locally; PR #15 not merged | Stage 12 |
-| Project creation UI | Done locally (create, rename, select); not merged | Stage 12 |
-| Developer Feedback | Done locally (outcomes on each finding); not merged | Stage 12 |
-| Learning outcomes | Done locally (outcomes by category); not merged | Stage 12 |
-| Semgrep and Bandit | Not implemented | Stage 13 |
-| Evidence-based confidence | Formula exists, AI evidence only | Stage 13 |
+| Authentication and data isolation | Done (PR #15) | Stage 12 |
+| Project creation UI | Done (create, rename, select) | Stage 12 |
+| Developer Feedback | Done (outcomes on each finding) | Stage 12 |
+| Learning outcomes | Done (outcomes by category) | Stage 12 |
+| Semgrep and Bandit | Done for Python; PR #16 not merged | Stage 13 |
+| Evidence-based confidence | Done: agreement between sources raises it; PR #16 not merged | Stage 13 |
 | Quality evaluation | Not implemented | Stage 14 |
 | Demo repository | Not implemented | Stage 14 |
 | Deployment | Not implemented | Stage 14, if feasible |
@@ -352,7 +366,7 @@ Don't cut Stage 10, Stage 11, the evaluation, or the demo.
 - Private code isn't supported.
 - Remember that selected code is sent to the AI provider.
 
-On `main`, the app has no authentication, so `GET /review-history/{id}` makes it easy to walk through every review. `/stats?q=` also reveals whether saved code contains a given string. Stage 12, not merged yet, limits every route to the signed-in user's own data, so these work only on your own reviews. Search is still an unindexed scan, and `GET /code-reviews/` is unbounded per user. Before any deployment, also complete the [Stage 12 checklist](reviews/stage-12-accounts-feedback-review.md#before-deployment):
+Stage 12 limits every route to the signed-in user's own data, so `GET /review-history/{id}` and `/stats?q=` work only on your own reviews. Search is still an unindexed scan, and `GET /code-reviews/` is unbounded per user. Before any deployment, also complete the [Stage 12 checklist](reviews/stage-12-accounts-feedback-review.md#before-deployment):
 - invite-only sign-up;
 - email confirmation;
 - Row Level Security on every table;
@@ -418,7 +432,7 @@ Developer Learning is a permanent project goal. It was recorded early so it woul
 5. Show counts and improvement trends over time.
 6. Provide a per-developer Learning Profile.
 
-**Status:** item 2 is complete. Item 3 is implemented in Stage 12, which isn't merged yet; "fixed" is self-reported. Item 5 is limited to real counts and outcomes. Items 1, 4 and 6 aren't fully implemented.
+**Status:** item 2 is complete. Item 3 is implemented (Stage 12); "fixed" is self-reported. Item 5 is limited to real counts and outcomes. Items 1, 4 and 6 aren't fully implemented.
 
 **Capstone scope:** Stage 12 improves the existing Learning page with real outcomes instead of building the full profile. The full requirement remains the long-term goal. See Open question 3.
 

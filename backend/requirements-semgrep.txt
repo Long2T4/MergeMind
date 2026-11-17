@@ -1,0 +1,11 @@
+# Stage 13: Semgrep, MergeMind's second static analyzer.
+#
+# Install it in its OWN environment, not the backend's: semgrep 1.184.0
+# needs click~=8.4.2, which conflicts with the backend's uvicorn[standard].
+# The backend runs it as the `semgrep` executable (or SEMGREP_EXECUTABLE).
+#
+#   Linux/macOS:  pipx install semgrep==1.184.0   (or a separate venv: pip install -r requirements-semgrep.txt)
+#   Windows:      not supported natively; run the backend in WSL (see README).
+#
+# Without Semgrep, reviews still run and show "Semgrep not installed".
+semgrep==1.184.0

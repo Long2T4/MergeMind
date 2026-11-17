@@ -1,0 +1,92 @@
+# MergeMind's own Semgrep rules for Python (Stage 13).
+#
+# Stored with the app so scans need no network and always give the same
+# results. Each rule's metadata.mergemind_kind must be a key of
+# app/services/finding_kinds.py KINDS: that is how Semgrep findings are
+# matched with Bandit and AI findings, and where their titles and fixes come
+# from. Tested in tests/test_stage13_real_scanners.py.
+rules:
+  - id: mergemind.hardcoded-secret
+    languages: [python]
+    severity: WARNING
+    message: A password or secret is written directly in the code, so anyone who can read the code can use it.
+    metadata: {cwe: "CWE-798", mergemind_kind: hardcoded-secret}
+    patterns:
+      - pattern-either:
+          - pattern: $NAME = "$VALUE"
+          - pattern: |
+              def $FUNC(..., $NAME="$VALUE", ...):
+                  ...
+      - metavariable-regex:
+          metavariable: $NAME
+          regex: (?i).*(password|passwd|pwd|secret|token|api_?key).*
+      - metavariable-regex:
+          metavariable: $VALUE
+          regex: .+
+
+  - id: mergemind.code-eval
+    languages: [python]
+    severity: ERROR
+    message: eval() or exec() runs whatever text it is given as Python code. If that text can come from a user, an attacker can run any code.
+    metadata: {cwe: "CWE-95", mergemind_kind: code-eval}
+    patterns:
+      - pattern-either:
+          - pattern: eval(...)
+          - pattern: exec(...)
+      - pattern-not: eval("...")
+      - pattern-not: exec("...")
+
+  - id: mergemind.shell-injection
+    languages: [python]
+    severity: ERROR
+    message: The command runs through a shell, so input containing characters such as ; or && can run extra commands.
+    metadata: {cwe: "CWE-78", mergemind_kind: shell-injection}
+    patterns:
+      - pattern-either:
+          - pattern: subprocess.$FUNC(..., shell=True, ...)
+          - pattern: os.system(...)
+          - pattern: os.popen(...)
+      - pattern-not: os.system("...")
+      - pattern-not: os.popen("...")
+
+  - id: mergemind.unsafe-deserialization
+    languages: [python]
+    severity: ERROR
+    message: Loading pickle, marshal or unsafe YAML data can run code hidden inside that data.
+    metadata: {cwe: "CWE-502", mergemind_kind: deserialization}
+    pattern-either:
+      - pattern: pickle.loads(...)
+      - pattern: pickle.load(...)
+      - pattern: marshal.loads(...)
+      - patterns:
+          - pattern: yaml.load(...)
+          - pattern-not: yaml.load(..., Loader=yaml.SafeLoader, ...)
+
+  - id: mergemind.sql-string-formatting
+    languages: [python]
+    severity: ERROR
+    message: The SQL query is built by inserting values into its text, so input can change what the query does (SQL injection).
+    metadata: {cwe: "CWE-89", mergemind_kind: sql-injection}
+    pattern-either:
+      - pattern: $CUR.execute("..." % ..., ...)
+      - pattern: $CUR.execute("...".format(...), ...)
+      - pattern: $CUR.execute(f"...", ...)
+      - pattern: $CUR.execute("..." + $X, ...)
+
+  - id: mergemind.weak-hash
+    languages: [python]
+    severity: WARNING
+    message: MD5 and SHA-1 are broken for security uses such as passwords or signatures.
+    metadata: {cwe: "CWE-327", mergemind_kind: weak-hash}
+    patterns:
+      - pattern-either:
+          - pattern: hashlib.md5(...)
+          - pattern: hashlib.sha1(...)
+      - pattern-not: hashlib.$H(..., usedforsecurity=False, ...)
+
+  - id: mergemind.tls-verification-disabled
+    languages: [python]
+    severity: WARNING
+    message: verify=False turns off HTTPS certificate checks, so someone on the network can read or change the traffic.
+    metadata: {cwe: "CWE-295", mergemind_kind: tls-disabled}
+    pattern: requests.$FUNC(..., verify=False, ...)
