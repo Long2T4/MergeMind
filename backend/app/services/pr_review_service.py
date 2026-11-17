@@ -16,7 +16,9 @@ from sqlalchemy.orm import Session
 from app.models.models import CodeReview, PullRequest, PullRequestFile, ReviewIssue
 from app.services.ai_review_service import review_code
 from app.services.analysis_service import (
+    analysis_status,
     collect_security_findings,
+    combine_statuses,
     merge_findings,
 )
 from app.services.confidence_service import calculate_confidence
@@ -211,10 +213,14 @@ def _context_for(client, ref, pull_request, path, code, tree, budget):
 
 
 def _review_file(client, ref, pull_request, changed_file, tree, budget):
-    """Review one changed file using Claude, Semgrep, and Bandit."""
+    """Review one changed file using Claude, Semgrep, and Bandit.
+
+    Returns (skip_reason, findings, scanner_status); skip_reason is None if
+    the file was reviewed, and scanner_status is None if it was skipped.
+    """
 
     if tree.get(changed_file.path, 0) > MAX_FILE_CHARS:
-        return "too_large", []
+        return "too_large", [], None
 
     try:
         code = client.get_file_text(
@@ -224,10 +230,10 @@ def _review_file(client, ref, pull_request, changed_file, tree, budget):
             max_chars=MAX_FILE_CHARS,
         )
     except FileTooLarge:
-        return "too_large", []
+        return "too_large", [], None
 
     if code is None:
-        return "binary", []
+        return "binary", [], None
 
     context = _context_for(
         client,
@@ -251,11 +257,13 @@ def _review_file(client, ref, pull_request, changed_file, tree, budget):
     )
 
     # Stage 13: Collect Semgrep and Bandit findings.
+    scanner_status = {"semgrep": "failed", "bandit": "failed"}
     try:
         security_analysis = collect_security_findings(
             code,
             changed_file.language,
         )
+        scanner_status = analysis_status(security_analysis)
 
         semgrep_issues = security_analysis["semgrep"]
         bandit_issues = security_analysis["bandit"]
@@ -274,6 +282,8 @@ def _review_file(client, ref, pull_request, changed_file, tree, budget):
             changed_file.path,
         )
 
+        # Scanner results, if any, weren't used.
+        scanner_status = {"semgrep": "failed", "bandit": "failed"}
         combined_issues = [
             {
                 **issue,
@@ -289,7 +299,7 @@ def _review_file(client, ref, pull_request, changed_file, tree, budget):
         line_count=line_count(code),
     )
 
-    return None, focused_issues
+    return None, focused_issues, scanner_status
 
 
 
@@ -302,12 +312,13 @@ def _review_files(db: Session, review_id: int, client: GitHubClient) -> None:
     tree = client.get_tree(ref, pull_request.head_sha)
     budget = _FetchBudget(MAX_CONTEXT_FETCHES)
     found = []
+    scanner_statuses = []  # Stage 13: one per reviewed file
 
     pending_ids = [f.id for f in pull_request.files if f.review_state == "pending"]
     for file_id in pending_ids:
         changed_file = db.get(PullRequestFile, file_id)
         try:
-            reason, issues = _review_file(client, ref, pull_request, changed_file, tree, budget)
+            reason, issues, scanner_status = _review_file(client, ref, pull_request, changed_file, tree, budget)
 
             for merged_issue in issues:
                 issue = merged_issue.copy()
@@ -334,6 +345,8 @@ def _review_files(db: Session, review_id: int, client: GitHubClient) -> None:
             changed_file.skip_reason = reason
             db.commit()  # one commit per file, so progress is visible while it runs
             found.extend(issues)
+            if scanner_status:
+                scanner_statuses.append(scanner_status)
         except Exception:
             logger.exception("Reviewing a pull request file failed for code review id=%s", review_id)
             db.rollback()
@@ -342,6 +355,7 @@ def _review_files(db: Session, review_id: int, client: GitHubClient) -> None:
             db.commit()
 
     review = db.get(CodeReview, review_id)
+    review.analysis_status = combine_statuses(scanner_statuses)
     if any(f.review_state == "reviewed" for f in review.pull_request.files):
         risk = calculate_risk(found)
         review.risk_score = risk["risk_score"]

@@ -46,6 +46,9 @@ class CodeReview(Base):
     risk_score: Mapped[int | None] = mapped_column(Integer, nullable=True)
     risk_level: Mapped[str | None] = mapped_column(String(20), nullable=True)
     risk_breakdown: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    # Stage 13: whether Semgrep and Bandit ran, e.g. {"semgrep": "completed",
+    # "bandit": "unavailable"} (migration 0006). NULL for older reviews.
+    analysis_status: Mapped[dict | None] = mapped_column(JSON, nullable=True)
 
     # Stage 11: set only for reviews of a GitHub pull request.
     pull_request_id: Mapped[int | None] = mapped_column(

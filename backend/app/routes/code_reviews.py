@@ -21,6 +21,7 @@ from app.services.ai_review_service import (
     review_code,
 )
 from app.services.analysis_service import (
+    analysis_status,
     collect_security_findings,
     merge_findings,
 )
@@ -197,11 +198,15 @@ def create_code_review(
     # --------------------------------------------------
     # Stage 13: Step 2 - Semgrep and Bandit analysis.
     # --------------------------------------------------
+    # Saved with the review so the user can tell "no findings" from "the
+    # scanner didn't run" (completed / failed / unavailable / not_run).
+    scanner_status = {"semgrep": "failed", "bandit": "failed"}
     try:
         security_analysis = collect_security_findings(
             review.submitted_code,
             review.programming_language,
         )
+        scanner_status = analysis_status(security_analysis)
 
         semgrep_findings = security_analysis["semgrep"]
         bandit_findings = security_analysis["bandit"]
@@ -237,6 +242,8 @@ def create_code_review(
             db_review.id,
         )
 
+        # Scanner results, if any, weren't used.
+        scanner_status = {"semgrep": "failed", "bandit": "failed"}
         merged_issues = [
             {
                 **issue,
@@ -294,6 +301,7 @@ def create_code_review(
         db_review.risk_score = risk["risk_score"]
         db_review.risk_level = risk["risk_level"]
         db_review.risk_breakdown = risk["risk_breakdown"]
+        db_review.analysis_status = scanner_status
 
         db_review.review_status = "completed"
         db.commit()

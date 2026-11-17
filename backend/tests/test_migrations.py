@@ -23,7 +23,7 @@ from app.models import models  # noqa: F401 (registers the tables on Base)
 
 BACKEND = Path(__file__).resolve().parents[1]
 POSTGRES_URL = os.environ.get("MIGRATION_TEST_DATABASE_URL")
-HEAD = "0005_stage12_accounts_feedback"
+HEAD = "0006_review_analysis_status"
 API_ROLES = ("anon", "authenticated")
 TABLES = ("review_issues", "code_reviews", "pull_request_files", "pull_requests", "projects", "users",
           "alembic_version")
@@ -294,6 +294,36 @@ def test_stage_12_migration_can_be_reversed_without_losing_data(engine):
     migrate(engine)
     assert schema_differences(engine) == []
 
+
+
+def test_stage_12_database_gains_scanner_status_and_keeps_reviews(engine):
+    migrate(engine, "0005_stage12_accounts_feedback")
+    _seed_stage_10_review(engine)
+    assert "analysis_status" not in _columns(engine, "code_reviews")
+
+    migrate(engine)
+
+    assert current_revision(engine) == HEAD
+    assert "analysis_status" in _columns(engine, "code_reviews")
+    with engine.connect() as connection:
+        # Older reviews say "not recorded" (NULL); nothing else changed.
+        assert connection.execute(text("SELECT analysis_status FROM code_reviews")).scalar_one() is None
+        assert connection.execute(text("SELECT explanation FROM review_issues")).scalar_one() == "Kept finding"
+    assert schema_differences(engine) == []
+
+
+def test_scanner_status_migration_can_be_reversed_without_losing_reviews(engine):
+    migrate(engine)
+    _seed_stage_10_review(engine)
+
+    migrate(engine, "0005_stage12_accounts_feedback", downgrade=True)
+    assert "analysis_status" not in _columns(engine, "code_reviews")
+    with engine.connect() as connection:
+        assert connection.execute(text("SELECT count(*) FROM code_reviews")).scalar_one() == 1
+        assert connection.execute(text("SELECT explanation FROM review_issues")).scalar_one() == "Kept finding"
+
+    migrate(engine)
+    assert schema_differences(engine) == []
 
 @pytest.fixture
 def postgres(engine):

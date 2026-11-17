@@ -143,6 +143,8 @@ class CodeReviewOut(BaseModel):
     risk_score: int | None = None
     risk_level: str | None = None
     risk_breakdown: dict | None = None
+    # Stage 13: per scanner, completed / failed / unavailable / not_run.
+    analysis_status: dict | None = None
     issues: list[ReviewIssueOut] = Field(default_factory=list)
     # Only the POST response includes context diagnostics; snapshots are not stored.
     context_summary: ContextSummary | None = None
