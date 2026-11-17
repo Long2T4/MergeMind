@@ -195,7 +195,9 @@ describe('New Review projects', () => {
     expect(await screen.findByLabelText('Project')).toHaveValue('2')
     fireEvent.change(screen.getByLabelText('Paste your code'), { target: { value: 'print(1)' } })
     fireEvent.click(screen.getByRole('button', { name: /Run review/ }))
-    await waitFor(() => expect(api.createCodeReview).toHaveBeenCalledWith(expect.objectContaining({ projectId: 2 })))
+    // Let the results page mount and finish loading before the mocks are reset.
+    expect(await screen.findByLabelText('Your outcome')).toBeInTheDocument()
+    expect(api.createCodeReview).toHaveBeenCalledWith(expect.objectContaining({ projectId: 2 }))
   })
 
   it('uses the selected project for pull request reviews too', async () => {
