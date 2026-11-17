@@ -104,8 +104,10 @@ describe('New review', () => {
   it('labels unsupported options instead of faking them', async () => {
     renderApp('/reviews/new')
     await screen.findByRole('button', { name: /Run review/ })
-    expect(screen.getAllByText('○ not available yet')).toHaveLength(3)
+    // Stage 13: Semgrep and Bandit run for Python; ESLint isn't available.
+    expect(screen.getAllByText('○ not available yet')).toHaveLength(1)
     expect(screen.getByText('● on')).toBeInTheDocument()
+    expect(screen.getAllByText('● Python')).toHaveLength(2)
     expect(screen.getAllByText('Coming soon').length).toBeGreaterThan(0)
   })
 })
