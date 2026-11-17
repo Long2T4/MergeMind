@@ -142,3 +142,13 @@ def get_owned_project(db: Session, project_id: int, user_id: int):
     """The project if it belongs to the user, else None (callers answer 404)."""
     from app.models.models import Project
     return db.query(Project).filter(Project.id == project_id, Project.user_id == user_id).one_or_none()
+
+
+def get_owned_finding(db: Session, issue_id: int, user_id: int):
+    from app.models.models import CodeReview, ReviewIssue
+    return (
+        db.query(ReviewIssue)
+        .join(CodeReview, CodeReview.id == ReviewIssue.review_id)
+        .filter(ReviewIssue.id == issue_id, CodeReview.project_id.in_(owned_project_ids(user_id)))
+        .one_or_none()
+    )

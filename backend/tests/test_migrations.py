@@ -23,7 +23,7 @@ from app.models import models  # noqa: F401 (registers the tables on Base)
 
 BACKEND = Path(__file__).resolve().parents[1]
 POSTGRES_URL = os.environ.get("MIGRATION_TEST_DATABASE_URL")
-HEAD = "0006_review_analysis_status"
+HEAD = "0007_beginner_explanations"
 API_ROLES = ("anon", "authenticated")
 TABLES = ("review_issues", "code_reviews", "pull_request_files", "pull_requests", "projects", "users",
           "alembic_version")
@@ -116,9 +116,9 @@ def test_existing_old_database_gains_new_columns_without_losing_data(engine):
     assert {"risk_score", "risk_breakdown"} <= {c["name"] for c in inspect(engine).get_columns("code_reviews")}
     with engine.connect() as connection:
         assert connection.execute(text("SELECT submitted_code FROM code_reviews")).scalar_one() == "print(1)"
-        row = connection.execute(text("SELECT explanation, status, risk_score FROM review_issues "
+        row = connection.execute(text("SELECT explanation, status, risk_score, beginner_explanation FROM review_issues "
                                       "JOIN code_reviews ON code_reviews.id = review_issues.review_id")).one()
-    assert tuple(row) == ("Existing finding", "open", None)
+    assert tuple(row) == ("Existing finding", "open", None, None)
     assert INDEXES <= index_names(engine, "code_reviews") | index_names(engine, "review_issues")
 
 

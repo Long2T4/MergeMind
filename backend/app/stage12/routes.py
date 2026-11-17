@@ -11,7 +11,7 @@ from sqlalchemy.orm import Session
 
 from app.database.database import get_db
 from app.models.models import Project, CodeReview, ReviewIssue
-from app.stage12.security import CurrentUser, get_current_user
+from app.stage12.security import CurrentUser, get_current_user, get_owned_finding
 
 router = APIRouter(prefix='/account', tags=['Stage 12 - account and learning'])
 
@@ -110,13 +110,7 @@ def review_findings(review_id: int, db: Session = Depends(get_db), user: Current
 @router.patch('/findings/{issue_id}')
 def update_status(issue_id: int, body: FindingStatus, db: Session = Depends(get_db), user: CurrentUser = Depends(get_current_user)):
     uid = user.id
-    issue = (
-        db.query(ReviewIssue)
-        .join(CodeReview, CodeReview.id == ReviewIssue.review_id)
-        .join(Project, Project.id == CodeReview.project_id)
-        .filter(ReviewIssue.id == issue_id, Project.user_id == uid)
-        .first()
-    )
+    issue = get_owned_finding(db, issue_id, uid)
     if not issue:
         raise HTTPException(status_code=404, detail='Finding not found')
     issue.status = body.status  # Only outcome is edited; Stage 13 analysis untouched.

@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from pydantic import BaseModel, Field, StrictStr, model_validator
+from pydantic import BaseModel, ConfigDict, Field, StrictStr, model_validator
 
 
 class UserCreate(BaseModel):
@@ -64,6 +64,15 @@ class CodeReviewCreate(BaseModel):
     project_context: ProjectContextInput | None = None
 
 
+class BeginnerExplanation(BaseModel):
+    model_config = ConfigDict(str_strip_whitespace=True, extra="forbid")
+
+    what_is_wrong: str = Field(min_length=1, max_length=1200)
+    why_it_matters: str = Field(min_length=1, max_length=1200)
+    before: str = Field(min_length=1, max_length=1200)
+    after: str = Field(min_length=1, max_length=1200)
+
+
 class ReviewIssueOut(BaseModel):
     id: int
     review_id: int
@@ -75,6 +84,7 @@ class ReviewIssueOut(BaseModel):
     explanation: str
     why_it_matters: str | None
     suggested_fix: str | None
+    beginner_explanation: BeginnerExplanation | None = None
     confidence_score: int | None = None
     confidence_level: str | None = None
     confidence_evidence: dict | None = None
