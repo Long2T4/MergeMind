@@ -4,7 +4,7 @@ MergeMind is an AI code review platform for students and junior developers. It r
 
 MergeMind is a university senior capstone project built by a student team. It runs locally today. It has not been deployed, and it isn't ready to host private code (see [Current limitations](#current-limitations)).
 
-> **Stage 12 (accounts, finding outcomes and learning) is described below but not merged yet.** It is in pull request [#15](https://github.com/Long2T4/MergeMind/pull/15) (branch `feature/stage-12-auth-feedback-learning`). On `main`, the app has no sign-in.
+> **Stage 13 (Semgrep and Bandit) is described below but not merged yet.** It is in pull request [#16](https://github.com/Long2T4/MergeMind/pull/16).
 
 ## Why MergeMind
 
@@ -19,6 +19,7 @@ Beginners often get no code review, or feedback that points out a problem withou
 - **Code review:** paste code or upload a file, then choose one of your projects and a language.
 - **Pull request review:** paste a public GitHub pull request URL. MergeMind reviews the changed files one by one, focuses on the changed lines, and shows the repository, title, author, commit and each file's status. The page shows progress while files are reviewed.
 - **AI findings:** each finding has a category, severity, explanation, reason it matters, suggested fix, and line reference when available.
+- **Static analysis (Python):** Semgrep, with MergeMind's own rules, and Bandit also check Python code. When the AI and a scanner report the same problem, they appear as one finding backed by both. The results page shows whether each scanner ran.
 - **Saved results:** a results page with severity counts, category filters, flagged code, and syntax-highlighted fixes.
 - **Finding outcomes:** mark each finding open, fixed, dismissed or false positive. "Fixed" is self-reported, not verified. MergeMind records who changed it and when.
 - **Review history:** search, status and language filters, pagination, and an issues-per-review chart. Filters stay in the URL.
@@ -31,7 +32,17 @@ Beginners often get no code review, or feedback that points out a problem withou
 
 ### What the scores mean
 
-- **Confidence** measures supporting evidence. It isn't the probability that a finding is correct. Only AI evidence exists today, so every new finding currently scores 20/low.
+- **Confidence** measures supporting evidence. It isn't the probability that a finding is correct. Agreement between independent sources raises it:
+
+  | Evidence | Score | Level |
+  |---|---|---|
+  | AI only | 20 | low |
+  | One scanner only | 30 | low |
+  | AI + one scanner | 50 | medium |
+  | Semgrep + Bandit | 60 | medium |
+  | AI + Semgrep + Bandit | 80 | high |
+
+  Findings saved before Stage 13 keep their stored scores.
 - **Merge risk** is a heuristic based on findings. It isn't the probability of a failed merge. Despite the feature's "PR Risk Scoring" name, it doesn't use real pull request data yet.
 
 ## Technology
@@ -43,6 +54,7 @@ Beginners often get no code review, or feedback that points out a problem withou
 | Database | PostgreSQL on Supabase |
 | Sign-in | Supabase Auth (`@supabase/supabase-js` in the browser; tokens verified with PyJWT against the project's public keys) |
 | AI | Anthropic Claude (`claude-haiku-4-5-20251001`), called only from the backend |
+| Static analysis | Semgrep 1.184.0 with MergeMind's own rules, and Bandit 1.9.4 (Python only) |
 | Testing | pytest, Vitest, Testing Library, jsdom |
 
 ## Architecture
@@ -61,6 +73,7 @@ FastAPI backend (port 8000)
         |-- github_service            reads public pull requests (read-only)
         |-- pr_review_service         reviews a pull request file by file
         |-- ai_review_service         builds the prompt and parses findings
+        |-- analysis_service          runs Semgrep and Bandit, merges matching findings
         |-- confidence_service        scores each finding's evidence
         |-- risk_score_service        scores each review
         |
@@ -99,8 +112,10 @@ docs/            Project plan, usage guides, reviews and lessons learned
 4. A `pending` review is saved.
 5. Claude receives trusted instructions separately from the code, which is sent as untrusted JSON data.
 6. The response is parsed, and categories and severities are normalized.
-7. Findings are saved with confidence scores, and the review gets a risk score and a `completed` status.
-8. If the AI call fails, the review is saved as `failed` and can be retried.
+7. For Python, Semgrep and Bandit then scan a temporary copy of the code. They only read it; nothing is executed. A scanner that's missing, fails or times out (30 seconds) doesn't stop the review.
+8. Findings that describe the same problem are merged. The kind of vulnerability (for example, command injection) must be the same, and the lines at most 1 apart.
+9. Findings are saved with confidence scores. The review gets a risk score, each scanner's status, and a `completed` status.
+10. If the AI call fails, the review is saved as `failed` and can be retried.
 
 Selected code and context files are sent to Anthropic. Snapshots aren't saved with the review, so attach them again when retrying.
 
@@ -109,7 +124,7 @@ Selected code and context files are sent to Anthropic. Snapshots aren't saved wi
 1. The user submits a public `https://github.com/{owner}/{repo}/pull/{number}` URL. The backend builds its own GitHub API addresses from it and never requests the URL itself.
 2. Before saving anything, the backend checks the project, reads the pull request with its `GITHUB_TOKEN`, rejects private, missing and oversized pull requests (over 30 changed files or 3,000 changed lines), and picks the files to review: the first 10 Python, JavaScript, TypeScript, Java, C or C++ files. Removed, generated and binary files are skipped.
 3. The pull request and a `pending` review are saved, and the request returns. A background task then reviews each file at the pull request's exact head commit, with the files it directly imports as context, and saves its findings as it goes.
-4. The AI is told which lines changed. Findings on or next to changed lines are kept. A few medium or high findings elsewhere in a file (at most 2) are kept and labeled "outside the diff"; others are dropped.
+4. The AI is told which lines changed. Python files are also scanned by Semgrep and Bandit, and matching findings are merged. Findings on or next to changed lines are kept. A few medium or high findings elsewhere in a file (at most 2) are kept and labeled "outside the diff"; others are dropped.
 5. If a file fails, the others continue. The review is `completed` if at least one file was reviewed, and `failed` otherwise. MergeMind never posts anything to GitHub.
 
 ## Pages
@@ -183,6 +198,8 @@ Copy `backend/.env.example` to `backend/.env`, and `frontend/.env.example` to `f
 | `ANTHROPIC_API_KEY` | For AI reviews | Without it, submissions save but end as `failed` |
 | `GITHUB_TOKEN` | For pull request reviews | A fine-grained token with read-only access to public repositories only. Server-side; never sent to the browser |
 | `AI_PROVIDER` | No | Defaults to `anthropic`, the only supported provider |
+| `SEMGREP_EXECUTABLE` | No | Path to `semgrep` if it isn't on PATH (see [Static analysis](#static-analysis)) |
+| `BANDIT_EXECUTABLE` | No | Path to `bandit`; by default the one installed with the backend |
 | `VITE_SUPABASE_URL` | Yes (frontend) | The same project URL |
 | `VITE_SUPABASE_ANON_KEY` | Yes (frontend) | The project's publishable (anon) key. It is public by design; never use the secret or `service_role` key here |
 | `VITE_API_BASE_URL` | No | Frontend setting; defaults to `http://localhost:8000` |
@@ -220,6 +237,15 @@ uvicorn app.main:app --reload
 
 The API runs at `http://localhost:8000`.
 
+### Static analysis
+
+- **Bandit** is in `requirements.txt`, so the steps above install it.
+- **Semgrep** has dependencies that conflict with the backend's, so install it in its own environment. The version is pinned in [`requirements-semgrep.txt`](backend/requirements-semgrep.txt).
+  - **Linux and macOS:** `pipx install semgrep==1.184.0`
+  - **Windows:** Semgrep doesn't run natively. To use it, run the backend in WSL and install Semgrep there the same way. Without it, Windows reviews use Bandit and the AI.
+
+Semgrep uses MergeMind's own rules in [`backend/app/analysis_rules/semgrep-python.yml`](backend/app/analysis_rules/semgrep-python.yml), so scans work offline. If a scanner isn't installed, reviews still run, and the results page says "Not installed on this server".
+
 If the server stops in the middle of a review, that review can stay `pending`. To find such reviews, run `python -m app.maintenance` from `backend/`. It only lists them by default; add `--apply` to mark them `failed` so they can be retried. Nothing runs automatically.
 
 ### First-run data
@@ -250,10 +276,14 @@ npm test
 npm run build
 ```
 
-Tests use SQLite, mocked AI responses, a fake GitHub and test-signed sign-in tokens, so they don't need Supabase, an Anthropic key or a GitHub token. Migration tests and the Stage 12 access and first-sign-in tests also run against PostgreSQL when `MIGRATION_TEST_DATABASE_URL` points at a disposable local database. They drop every table there and refuse any non-local address, so never point it at Supabase.
+Tests use SQLite, mocked AI responses, a fake GitHub and test-signed sign-in tokens, so they don't need Supabase, an Anthropic key or a GitHub token.
+
+Most tests treat Semgrep and Bandit as not installed. `tests/test_stage13_real_scanners.py` runs the real tools on known vulnerable and clean files in `tests/fixtures/stage13/`, and skips a tool that isn't installed. To make a missing tool fail instead, set `MERGEMIND_REQUIRE_SCANNERS=semgrep,bandit`.
+
+Migration tests and the Stage 12 access and first-sign-in tests also run against PostgreSQL when `MIGRATION_TEST_DATABASE_URL` points at a disposable local database. They drop every table there and refuse any non-local address, so never point it at Supabase.
 
 GitHub Actions ([`.github/workflows/ci.yml`](.github/workflows/ci.yml)) runs on every pull request and push to `main`:
-- backend tests on Ubuntu and Windows;
+- backend tests on Ubuntu, with real Semgrep and Bandit, and on Windows, with real Bandit;
 - migration tests on a throwaway PostgreSQL;
 - frontend tests and the production build.
 
@@ -268,7 +298,8 @@ The full flow was verified live on 2026-11-05, against Supabase and the Anthropi
 - **Sessions:** after **Log out**, an access token that was already issued stays valid until it expires (one hour by default).
 - **Public pull requests only:** no private repositories, OAuth or webhooks, and nothing is posted back to GitHub. Large pull requests are rejected rather than partly reviewed, and at most 10 files are reviewed.
 - **Background reviews:** pull request reviews run inside the backend process, without a job queue. If the server stops mid-review, the review stays `pending`; `python -m app.maintenance` finds it.
-- **No static analysis:** Semgrep and Bandit aren't integrated, so confidence doesn't yet separate strong findings from weak ones.
+- **Static analysis covers Python only:** Semgrep's 7 MergeMind rules and Bandit check common security problems, not everything. Code with a syntax error can't be scanned, and is shown as "Couldn't finish". Semgrep needs WSL or Docker on Windows.
+- **Matching findings is approximate:** an AI finding is matched by the words it uses. If its wording is vague, or names two kinds of problem, it stays a separate finding.
 - **Outcomes are self-reported:** "Fixed" means the user said so; MergeMind doesn't check the code.
 - **Learning page is interim:** it shows category counts and outcomes for your own reviews, not a per-developer profile. It counts the project owner, not the code's author. A repeated category doesn't prove the same mistake, and a lower count doesn't prove improvement.
 - **AI findings can be wrong:** review them before acting on them. Line numbers come from the model and can be imperfect. Pull request files are sent with numbered lines, and impossible line numbers are dropped; in the live test this took exact lines from 1 of 5 to 5 of 6.
@@ -277,7 +308,7 @@ The full flow was verified live on 2026-11-05, against Supabase and the Anthropi
 
 ## Project status
 
-Stages 1–11 and a frontend redesign are complete and merged. Stage 12 is implemented and tested locally; its pull request isn't merged yet.
+Stages 1–12 and a frontend redesign are complete and merged. Stage 13 is implemented and tested; its pull request isn't merged yet.
 
 | Stage | Title | Status |
 |---|---|---|
@@ -288,11 +319,11 @@ Stages 1–11 and a frontend redesign are complete and merged. Stage 12 is imple
 | 9 | Project-Aware Review (supplied snapshots) | Complete |
 | 10 | Foundation and Stability | Complete: CI, migrations, reliability fixes, live verification |
 | 11 | GitHub Pull Request Integration | Complete: verified live on a demo PR; merged (PR #13) |
-| 12 | Developer Feedback and Learning | Implemented locally on top of PR #15; **not merged**. Accounts, per-user data, projects, finding outcomes and Learning outcomes. Not verified against live Supabase yet |
-| 13 | Static Analysis Integration | Planned |
+| 12 | Developer Feedback and Learning | Complete: merged (PR #15). Accounts, per-user data, projects, finding outcomes and Learning outcomes. Not verified against live Supabase yet |
+| 13 | Static Analysis Integration | In PR #16; **not merged**. Semgrep (local rules) and Bandit, merged findings, evidence-based confidence and scanner status. Migration `0006` not applied to Supabase |
 | 14 | Evaluation and Final Demo | Planned |
 
-Planned work isn't available yet. It includes Semgrep and Bandit evidence, and a measured evaluation of review quality. See the full [project plan](docs/PROJECT_PLAN.md).
+Planned work isn't available yet. It includes a measured evaluation of review quality. See the full [project plan](docs/PROJECT_PLAN.md).
 
 ## Contributors
 
