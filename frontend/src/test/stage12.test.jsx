@@ -1,4 +1,4 @@
-import { fireEvent, screen, waitFor, within } from '@testing-library/react'
+import { cleanup, fireEvent, screen, waitFor, within } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import * as api from '../services/api'
 import * as auth from '../stage12/auth'
@@ -23,7 +23,13 @@ beforeEach(() => {
   mockApi(api)
 })
 
-afterEach(() => vi.restoreAllMocks())
+// Unmount first: Vitest runs this hook before Testing Library's own cleanup,
+// so a page still loading (e.g. navigating to Review Results) would otherwise
+// call the just-reset API mocks and crash with "reading 'then'" of undefined.
+afterEach(() => {
+  cleanup()
+  vi.restoreAllMocks()
+})
 
 describe('Finding feedback on Review Results', () => {
   it('shows an outcome control on each finding card, with Fixed labeled self-reported', async () => {
@@ -195,7 +201,9 @@ describe('New Review projects', () => {
     expect(await screen.findByLabelText('Project')).toHaveValue('2')
     fireEvent.change(screen.getByLabelText('Paste your code'), { target: { value: 'print(1)' } })
     fireEvent.click(screen.getByRole('button', { name: /Run review/ }))
-    await waitFor(() => expect(api.createCodeReview).toHaveBeenCalledWith(expect.objectContaining({ projectId: 2 })))
+    // Let the results page mount and finish loading before the mocks are reset.
+    expect(await screen.findByLabelText('Your outcome')).toBeInTheDocument()
+    expect(api.createCodeReview).toHaveBeenCalledWith(expect.objectContaining({ projectId: 2 }))
   })
 
   it('uses the selected project for pull request reviews too', async () => {

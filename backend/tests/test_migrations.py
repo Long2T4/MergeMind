@@ -23,7 +23,7 @@ from app.models import models  # noqa: F401 (registers the tables on Base)
 
 BACKEND = Path(__file__).resolve().parents[1]
 POSTGRES_URL = os.environ.get("MIGRATION_TEST_DATABASE_URL")
-HEAD = "0006_review_analysis_status"
+HEAD = "0007_beginner_explanations"
 API_ROLES = ("anon", "authenticated")
 TABLES = ("review_issues", "code_reviews", "pull_request_files", "pull_requests", "projects", "users",
           "alembic_version")
@@ -116,9 +116,9 @@ def test_existing_old_database_gains_new_columns_without_losing_data(engine):
     assert {"risk_score", "risk_breakdown"} <= {c["name"] for c in inspect(engine).get_columns("code_reviews")}
     with engine.connect() as connection:
         assert connection.execute(text("SELECT submitted_code FROM code_reviews")).scalar_one() == "print(1)"
-        row = connection.execute(text("SELECT explanation, status, risk_score FROM review_issues "
+        row = connection.execute(text("SELECT explanation, status, risk_score, beginner_explanation FROM review_issues "
                                       "JOIN code_reviews ON code_reviews.id = review_issues.review_id")).one()
-    assert tuple(row) == ("Existing finding", "open", None)
+    assert tuple(row) == ("Existing finding", "open", None, None)
     assert INDEXES <= index_names(engine, "code_reviews") | index_names(engine, "review_issues")
 
 
@@ -320,6 +320,36 @@ def test_scanner_status_migration_can_be_reversed_without_losing_reviews(engine)
     assert "analysis_status" not in _columns(engine, "code_reviews")
     with engine.connect() as connection:
         assert connection.execute(text("SELECT count(*) FROM code_reviews")).scalar_one() == 1
+        assert connection.execute(text("SELECT explanation FROM review_issues")).scalar_one() == "Kept finding"
+
+    migrate(engine)
+    assert schema_differences(engine) == []
+
+
+def test_stage_13_database_gains_beginner_explanations_and_keeps_findings(engine):
+    migrate(engine, "0006_review_analysis_status")
+    _seed_stage_10_review(engine)
+    assert "beginner_explanation" not in _columns(engine, "review_issues")
+
+    migrate(engine)
+
+    assert current_revision(engine) == HEAD
+    with engine.connect() as connection:
+        row = connection.execute(text("SELECT explanation, status, beginner_explanation FROM review_issues")).one()
+    assert tuple(row) == ("Kept finding", "open", None)  # nothing generated or changed
+    assert schema_differences(engine) == []
+
+
+def test_beginner_explanation_migration_can_be_reversed_without_losing_findings(engine):
+    migrate(engine)
+    _seed_stage_10_review(engine)
+    with engine.begin() as connection:
+        connection.execute(text("UPDATE review_issues SET beginner_explanation = :value"),
+                           {"value": '{"what_is_wrong": "x", "why_it_matters": "y", "before": "a", "after": "b"}'})
+
+    migrate(engine, "0006_review_analysis_status", downgrade=True)
+    assert "beginner_explanation" not in _columns(engine, "review_issues")
+    with engine.connect() as connection:
         assert connection.execute(text("SELECT explanation FROM review_issues")).scalar_one() == "Kept finding"
 
     migrate(engine)

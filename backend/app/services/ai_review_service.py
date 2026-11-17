@@ -178,22 +178,33 @@ def _review_with_claude(
     project_context: ProjectContext | None = None, file_path: str | None = None,
     changed_lines: list[int] | None = None,
 ) -> list[dict]:
+    response_text = request_claude_text(
+        system=_instructions(changed_lines),
+        payload=build_review_payload(
+            source_code, language, project_context=project_context, file_path=file_path,
+            changed_lines=changed_lines,
+        ),
+    )
+    return _parse_issues_object(response_text)
+
+
+def request_claude_text(
+    *, system: str, payload: str, max_tokens: int = MAX_OUTPUT_TOKENS,
+    timeout: int = REQUEST_TIMEOUT_SECONDS, max_retries: int = 2,
+) -> str:
     api_key = os.getenv("ANTHROPIC_API_KEY")
     if not api_key:
         raise RuntimeError(
             "ANTHROPIC_API_KEY is not set. Add it to backend/.env to use the AI review service."
         )
 
-    client = Anthropic(api_key=api_key, timeout=REQUEST_TIMEOUT_SECONDS)
+    client = Anthropic(api_key=api_key, timeout=timeout, max_retries=max_retries)
 
     response = client.messages.create(
         model=CLAUDE_MODEL,
-        max_tokens=MAX_OUTPUT_TOKENS,
-        system=_instructions(changed_lines),
-        messages=[{"role": "user", "content": build_review_payload(
-            source_code, language, project_context=project_context, file_path=file_path,
-            changed_lines=changed_lines,
-        )}],
+        max_tokens=max_tokens,
+        system=system,
+        messages=[{"role": "user", "content": payload}],
     )
 
     if getattr(response, "stop_reason", None) == "max_tokens":
@@ -204,7 +215,7 @@ def _review_with_claude(
     )
     if response_text is None:
         raise RuntimeError("AI response contained no text")
-    return _parse_issues_object(response_text)
+    return response_text
 
 
 def _parse_issues_object(text: str) -> list[dict]:

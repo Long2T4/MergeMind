@@ -128,6 +128,7 @@ class ReviewIssue(Base):
     explanation: Mapped[str] = mapped_column(Text)
     why_it_matters: Mapped[str | None] = mapped_column(Text, nullable=True)
     suggested_fix: Mapped[str | None] = mapped_column(Text, nullable=True)
+    beginner_explanation: Mapped[dict | None] = mapped_column(JSON, nullable=True)
     
     #Stage 7: Confidence Score numeric evidence-based confidence score (0-100).
     confidence_score: Mapped[int | None] = mapped_column(Integer, nullable=True)

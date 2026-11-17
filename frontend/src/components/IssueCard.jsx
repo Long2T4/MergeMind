@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { codeContext } from '../lib/code'
+import BeginnerExplanation from './BeginnerExplanation'
 import CategoryBadge from './CategoryBadge'
 import ConfidenceMeter, { ConfidencePill, confirmedEvidence } from './ConfidenceMeter'
 import FormattedText from './FormattedText'
@@ -89,6 +90,11 @@ function IssueCard({ issue, code, language, snippet, defaultExpanded = false }) 
         )}
 
         <ConfidenceMeter issue={issue} />
+        <BeginnerExplanation
+          issueId={issue.id}
+          savedExplanation={issue.beginner_explanation}
+          language={language}
+        />
         <FindingStatusControl issueId={issue.id} status={issue.status} updatedAt={issue.status_updated_at} />
       </div>
     </li>

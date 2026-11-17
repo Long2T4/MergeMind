@@ -19,6 +19,7 @@ Beginners often get no code review, or feedback that points out a problem withou
 - **Code review:** paste code or upload a file, then choose one of your projects and a language.
 - **Pull request review:** paste a public GitHub pull request URL. MergeMind reviews the changed files one by one, focuses on the changed lines, and shows the repository, title, author, commit and each file's status. The page shows progress while files are reviewed.
 - **AI findings:** each finding has a category, severity, explanation, reason it matters, suggested fix, and line reference when available.
+- **Beginner explanations:** choose **Explain like I’m new** on a finding in a manual or pull request review. Claude uses the saved finding details to explain the issue in plain language and show a small before-and-after example. The app saves the answer and reuses it when you reopen the finding.
 - **Static analysis (Python):** Semgrep, with MergeMind's own rules, and Bandit also check Python code. When the AI and a scanner report the same problem, they appear as one finding backed by both. The results page shows whether each scanner ran.
 - **Saved results:** a results page with severity counts, category filters, flagged code, and syntax-highlighted fixes.
 - **Finding outcomes:** mark each finding open, fixed, dismissed or false positive. "Fixed" is self-reported, not verified. MergeMind records who changed it and when.
@@ -154,6 +155,7 @@ Every endpoint except `/health` and the API docs needs `Authorization: Bearer <S
 | GET, PATCH | `/account/projects/{id}` | Read or rename one of your projects |
 | GET | `/account/reviews/{id}/findings` | A review's findings and their outcomes |
 | PATCH | `/account/findings/{id}` | Set a finding's outcome: `open`, `fixed`, `dismissed` or `false_positive` |
+| POST | `/account/findings/{id}/beginner-explanation` | Get the saved beginner explanation or generate and save one for a finding you own |
 | GET | `/account/learning` | Your outcome and category statistics |
 | GET, POST | `/projects/` | List or create your projects (older endpoint) |
 | POST | `/code-reviews/` | Create and run a review |
@@ -295,6 +297,7 @@ The full flow was verified live on 2026-11-05, against Supabase and the Anthropi
 
 - **Not deployed:** sign-in and per-user access exist (Stage 12), but the backend still allows only `http://localhost:5173` as a browser origin, and nothing has been tested on a server. See the [pre-deployment checklist](docs/reviews/stage-12-accounts-feedback-review.md#before-deployment). Selected code is sent to Anthropic, so don't use private code.
 - **AI spending:** limits are server-wide, not per user: 30 manual reviews per hour, and for pull requests 3 at once and 20 per hour (at most 200 AI calls). One account can use up the allowance for everyone, so keep sign-up invite-only on a shared server. Also set a monthly spend limit in the Anthropic console.
+- **Beginner explanation spending:** the API process allows 20 generation attempts per rolling hour and 3 at once. Loading a saved explanation uses no allowance. The counters reset on restart and are local to each worker.
 - **Sessions:** after **Log out**, an access token that was already issued stays valid until it expires (one hour by default).
 - **Public pull requests only:** no private repositories, OAuth or webhooks, and nothing is posted back to GitHub. Large pull requests are rejected rather than partly reviewed, and at most 10 files are reviewed.
 - **Background reviews:** pull request reviews run inside the backend process, without a job queue. If the server stops mid-review, the review stays `pending`; `python -m app.maintenance` finds it.
