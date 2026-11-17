@@ -135,3 +135,24 @@ def test_overlapping_requests_only_generate_once(env):
 
     assert env.client.post(url, headers=A).json() == EXPLANATION
     env.provider.messages.create.assert_called_once()
+
+
+def test_the_output_limit_fits_the_longest_valid_answer(env):
+    """A valid answer can be 4 x 1200 characters; the token cap must allow it."""
+    longest = {field: "x" * 1200 for field in EXPLANATION}
+    env.provider.messages.create.side_effect = None
+    env.provider.messages.create.return_value = reply(longest)
+    assert env.client.post(path(env.ids["A"].issue), headers=A).json() == longest
+    max_tokens = env.provider.messages.create.call_args.kwargs["max_tokens"]
+    assert max_tokens * 3 >= len(json.dumps(longest))  # about 3+ characters per token
+
+
+def test_a_cut_off_answer_is_not_saved(env):
+    issue_id = env.ids["A"].issue
+    env.provider.messages.create.side_effect = None
+    env.provider.messages.create.return_value = SimpleNamespace(
+        content=[SimpleNamespace(text='{"what_is_wrong": "The func')], stop_reason="max_tokens")
+    assert env.client.post(path(issue_id), headers=A).status_code == 502
+    with env.factory() as db:
+        assert db.get(ReviewIssue, issue_id).beginner_explanation is None
+
