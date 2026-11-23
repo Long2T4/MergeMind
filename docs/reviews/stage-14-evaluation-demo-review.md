@@ -47,7 +47,7 @@ New tests:
 
 ## Unresolved issues
 
-- **AI evaluation:** needs 7 approved Anthropic calls. The runner records and replays them.
+- **AI evaluation:** run once on 2026-11-23 (7 calls): 15/19 with the AI, 4/8 AI-only problems. It showed manual-review line numbers were off; fixed. Re-measuring needs 7 more approved calls.
 - **Live demo rehearsal:** with the real AI, GitHub and Supabase, about 8 AI calls. Record the fallback video during it.
 - **Demo PR #2** isn't published to `Long2T4/mergemind-demo`; that needs a team member's GitHub access.
 - **Supabase:** migrations `0005`–`0007`, plus the settings in [deployment.md](../deployment.md), need approval and a backup.

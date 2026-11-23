@@ -1,0 +1,286 @@
+{
+  "accounts.py": [
+    {
+      "title": "SQL Injection vulnerability in find_account",
+      "category": "security",
+      "severity": "high",
+      "line_number": 15,
+      "explanation": "The find_account function uses string interpolation (%) to build a SQL query with user-supplied email input. An attacker can inject SQL commands by providing an email like \"' OR '1'='1\" to bypass authentication or extract data.",
+      "why_it_matters": "SQL injection is a critical vulnerability that allows attackers to read, modify, or delete database contents, potentially compromising all user accounts and sensitive data.",
+      "suggested_fix": "Use parameterized queries with placeholders: `query = \"SELECT id, email FROM accounts WHERE email = ?\"` and `connection.execute(query, (email,)).fetchone()`"
+    },
+    {
+      "title": "SQL Injection vulnerability in delete_account",
+      "category": "security",
+      "severity": "high",
+      "line_number": 19,
+      "explanation": "The delete_account function uses f-string interpolation to insert account_id directly into the SQL query. An attacker controlling account_id can execute arbitrary SQL commands.",
+      "why_it_matters": "This allows attackers to delete arbitrary records, modify data, or escalate privileges through SQL injection.",
+      "suggested_fix": "Use parameterized queries: `cursor.execute(\"DELETE FROM accounts WHERE id = ?\", (account_id,))`"
+    },
+    {
+      "title": "Weak password hashing using MD5",
+      "category": "security",
+      "severity": "high",
+      "line_number": 8,
+      "explanation": "MD5 is a cryptographically broken hash function that is fast and unsuitable for password storage. It is vulnerable to collision attacks and rainbow table lookups, and no salt is used.",
+      "why_it_matters": "If the database is compromised, attackers can quickly crack password hashes using precomputed tables or brute force, compromising user accounts.",
+      "suggested_fix": "Use bcrypt, scrypt, or Argon2 instead. Example: `import bcrypt` and `bcrypt.hashpw(password.encode(), bcrypt.gensalt())`"
+    },
+    {
+      "title": "Weak random token generation",
+      "category": "security",
+      "severity": "medium",
+      "line_number": 11,
+      "explanation": "The new_reset_token function uses random.choice() for cryptographic purposes. The random module is not cryptographically secure and uses a predictable seed, making tokens guessable.",
+      "why_it_matters": "An attacker could predict password reset tokens and hijack user accounts by guessing or predicting the token sequence.",
+      "suggested_fix": "Use secrets.token_hex(8) or os.urandom() instead: `import secrets` and `return secrets.token_hex(8)`"
+    },
+    {
+      "title": "Hardcoded credentials exposed in source code",
+      "category": "security",
+      "severity": "high",
+      "line_number": 5,
+      "explanation": "Admin password and session secret are hardcoded in the source file. If this code is committed to version control or leaked, attackers gain immediate access to administrative functions and can forge sessions.",
+      "why_it_matters": "Hardcoded secrets compromise the entire authentication system and are a common attack vector in real-world breaches.",
+      "suggested_fix": "Store credentials in environment variables or a secure configuration file outside the repository: `ADMIN_PASSWORD = os.getenv('ADMIN_PASSWORD')`"
+    },
+    {
+      "title": "Database connection not closed in find_account",
+      "category": "error_handling",
+      "severity": "medium",
+      "line_number": 14,
+      "explanation": "The find_account function creates a database connection but never closes it. This causes resource leaks that accumulate with repeated calls, eventually exhausting available connections.",
+      "why_it_matters": "Resource leaks degrade performance and can cause the application to fail when connection limits are exceeded.",
+      "suggested_fix": "Use a context manager: `with sqlite3.connect(db_path) as connection: ... return connection.execute(query, (email,)).fetchone()`"
+    }
+  ],
+  "clean_accounts.py": [
+    {
+      "title": "Database connection not closed",
+      "category": "error_handling",
+      "severity": "medium",
+      "line_number": 17,
+      "explanation": "In the `find_account` function, a SQLite connection is created but never closed. This leaves the database connection open, which can lead to resource exhaustion if the function is called repeatedly.",
+      "why_it_matters": "Unclosed database connections consume system resources and can eventually cause the application to fail when it reaches the maximum number of open connections. This is especially problematic in long-running applications or under high load.",
+      "suggested_fix": "Use a context manager to ensure the connection is closed properly. Replace the function with:\n\n```python\ndef find_account(db_path, email):\n    with sqlite3.connect(db_path) as connection:\n        return connection.execute(\"SELECT id, email FROM accounts WHERE email = ?\", (email,)).fetchone()\n```"
+    },
+    {
+      "title": "hash_file function accepts any data type without validation",
+      "category": "input_validation",
+      "severity": "medium",
+      "line_number": 10,
+      "explanation": "The `hash_file` function calls `hashlib.sha256(data)` without validating that `data` is bytes. If a string or other type is passed, it will raise a TypeError. The function name suggests it hashes file contents, but there's no validation.",
+      "why_it_matters": "Without input validation, the function can fail unexpectedly with unclear error messages, making debugging harder. This violates the principle of explicit error handling and can cause the application to crash if callers pass incorrect types.",
+      "suggested_fix": "Add input validation to ensure `data` is bytes:\n\n```python\ndef hash_file(data):\n    if not isinstance(data, bytes):\n        raise TypeError(\"data must be bytes\")\n    return hashlib.sha256(data).hexdigest()\n```"
+    },
+    {
+      "title": "Unused constant and unclear naming",
+      "category": "code_quality",
+      "severity": "low",
+      "line_number": 5,
+      "explanation": "`EMPTY_DEFAULT_TOKEN` is defined on line 5 but never used in the submitted code. Additionally, the constant name is unclear\u2014it's not obvious what this token is for or when it should be used.",
+      "why_it_matters": "Dead code clutters the codebase and makes maintenance harder. Future developers may waste time wondering about its purpose. If it's genuinely unused, it should be removed.",
+      "suggested_fix": "Remove the unused constant or clarify its purpose with a comment and use it. If it's a placeholder for future functionality, document it:\n\n```python\n# TODO: Implement default token for initial account setup\n# EMPTY_DEFAULT_TOKEN = \"\"\n```\n\nOtherwise, delete it entirely."
+    }
+  ],
+  "clean_orders.py": [
+    {
+      "title": "Missing input validation in total_price",
+      "category": "input_validation",
+      "severity": "medium",
+      "line_number": 1,
+      "explanation": "The `total_price` function assumes each item is a dictionary with 'price' and 'quantity' keys, but does not validate this. If an item is missing these keys or has non-numeric values, the function will crash with a KeyError or TypeError.",
+      "why_it_matters": "Without validation, unexpected input formats cause unhandled exceptions and poor error messages, making debugging difficult and reducing code robustness.",
+      "suggested_fix": "Add validation to check that items is a list, each item is a dict with required keys, and values are numeric. For example:\n```python\ndef total_price(items):\n    if not isinstance(items, list):\n        raise ValueError(\"items must be a list\")\n    total = 0\n    for item in items:\n        if not isinstance(item, dict) or 'price' not in item or 'quantity' not in item:\n            raise ValueError(\"Each item must be a dict with 'price' and 'quantity' keys\")\n        try:\n            total += item[\"price\"] * item[\"quantity\"]\n        except TypeError:\n            raise ValueError(\"price and quantity must be numeric\")\n    return total\n```"
+    },
+    {
+      "title": "Mutable default argument in add_tag",
+      "category": "logic",
+      "severity": "high",
+      "line_number": 7,
+      "explanation": "Using a mutable default argument (`tags=None` with fallback to `[]`) is a Python anti-pattern when modified in place. However, the current code uses `tags is None` to safely create a new list, which is correct. But the function modifies and returns the input list directly\u2014if the caller passes a list, it will be mutated. This can cause unexpected side effects.",
+      "why_it_matters": "Mutating input parameters can lead to subtle bugs where callers don't expect their data to be modified. This violates the principle of least surprise and makes code harder to debug.",
+      "suggested_fix": "Return a new list instead of modifying the input:\n```python\ndef add_tag(tag, tags=None):\n    tags = [] if tags is None else tags\n    return tags + [tag]  # Return new list instead of modifying input\n```"
+    },
+    {
+      "title": "Missing input validation in average_rating",
+      "category": "input_validation",
+      "severity": "low",
+      "line_number": 5,
+      "explanation": "The `average_rating` function does not validate that `ratings` is a list or that all elements are numeric. If a non-numeric value is in the list, the `sum()` call will fail with a TypeError.",
+      "why_it_matters": "Invalid input can crash the function with a confusing error message. Explicit validation provides clearer feedback and makes the function's requirements obvious.",
+      "suggested_fix": "Add validation to ensure ratings is iterable and contains only numeric values:\n```python\ndef average_rating(ratings):\n    if not ratings:\n        return 0.0\n    if not all(isinstance(r, (int, float)) for r in ratings):\n        raise ValueError(\"All ratings must be numeric\")\n    return sum(ratings) / len(ratings)\n```"
+    }
+  ],
+  "clean_tools.py": [
+    {
+      "title": "Unsafe subprocess command construction with user input",
+      "category": "security",
+      "severity": "high",
+      "line_number": 7,
+      "explanation": "The `archive_logs` function passes the `folder` parameter directly to `subprocess.run()` as a list argument. If `folder` contains special characters or is controlled by an attacker, it could be used to execute unintended shell commands, even though the command is passed as a list. The `folder` parameter is not validated or escaped.",
+      "why_it_matters": "An attacker could pass a specially crafted folder name (e.g., one containing shell metacharacters or path traversal sequences) to execute arbitrary commands or access files outside the intended directory, compromising system security.",
+      "suggested_fix": "Validate the `folder` parameter to ensure it is a valid directory name without suspicious characters. Use `pathlib.Path` to safely handle paths and verify the folder exists before passing it to subprocess. For example:\n\n```python\nfrom pathlib import Path\n\ndef archive_logs(folder):\n    folder_path = Path(folder)\n    if not folder_path.is_dir():\n        raise ValueError(f\"Invalid folder: {folder}\")\n    subprocess.run([\"tar\", \"-czf\", \"logs.tgz\", str(folder_path)], check=True)\n```"
+    },
+    {
+      "title": "Unsafe evaluation of arbitrary expressions",
+      "category": "security",
+      "severity": "high",
+      "line_number": 11,
+      "explanation": "The `calculate` function uses `ast.literal_eval()` to evaluate user-provided expressions. While `ast.literal_eval()` is safer than `eval()`, it still has known vulnerabilities and should only be used for evaluating Python literal structures (strings, numbers, tuples, lists, dicts, booleans, and None). If the intent is to perform mathematical calculations, this approach is fragile and may fail or behave unexpectedly with certain inputs.",
+      "why_it_matters": "Using `ast.literal_eval()` for arbitrary expression evaluation can lead to unexpected behavior, errors, or potential security issues if the function is extended or if inputs are not strictly controlled. It's also not the appropriate tool for mathematical expression evaluation.",
+      "suggested_fix": "If the goal is to safely evaluate mathematical expressions, use a dedicated library like `numexpr` or `sympy`. If you need to parse Python literals only, validate that the input is actually a literal. For mathematical expressions:\n\n```python\nimport numexpr\n\ndef calculate(expression):\n    # Only allow simple arithmetic; use numexpr for safety\n    return numexpr.evaluate(expression)\n```\n\nOr use `ast.literal_eval()` only if you can guarantee the input is a Python literal."
+    },
+    {
+      "title": "File opened without explicit encoding",
+      "category": "code_quality",
+      "severity": "low",
+      "line_number": 15,
+      "explanation": "The `load_config` function opens a file without specifying an explicit encoding (line 15). This relies on the system default encoding, which may vary across platforms and environments, potentially causing issues with non-ASCII characters.",
+      "why_it_matters": "Without an explicit encoding, the code may behave differently on different systems (e.g., UTF-8 on Linux vs. UTF-16 on some Windows systems). This can lead to hidden bugs when processing config files with non-ASCII characters or when code is deployed to systems with different default encodings.",
+      "suggested_fix": "Specify an explicit encoding when opening the file:\n\n```python\ndef load_config(path):\n    with open(path, encoding='utf-8') as handle:\n        return yaml.safe_load(handle)\n```"
+    },
+    {
+      "title": "Missing input validation and error handling",
+      "category": "error_handling",
+      "severity": "medium",
+      "line_number": 11,
+      "explanation": "None of the functions validate their inputs or handle potential exceptions. For example, `load_config` could raise `FileNotFoundError` if the path doesn't exist, `PermissionError` if access is denied, or `yaml.YAMLError` if the YAML is malformed. Similarly, `load_session` could raise `json.JSONDecodeError` on invalid JSON, and `archive_logs` could fail if the folder doesn't exist or tar is unavailable.",
+      "why_it_matters": "Without error handling, the application will crash with unhelpful error messages. Users and developers cannot distinguish between expected failures (bad input) and unexpected system errors, making debugging difficult and reducing code robustness.",
+      "suggested_fix": "Add input validation and handle exceptions appropriately:\n\n```python\ndef load_config(path):\n    if not path:\n        raise ValueError(\"Config path cannot be empty\")\n    try:\n        with open(path, encoding='utf-8') as handle:\n            return yaml.safe_load(handle)\n    except FileNotFoundError:\n        raise ValueError(f\"Config file not found: {path}\")\n    except yaml.YAMLError as e:\n        raise ValueError(f\"Invalid YAML in {path}: {e}\")\n\ndef load_session(text):\n    if not text:\n        raise ValueError(\"Session text cannot be empty\")\n    try:\n        return json.loads(text)\n    except json.JSONDecodeError as e:\n        raise ValueError(f\"Invalid JSON: {e}\")\n```"
+    }
+  ],
+  "orders.py": [
+    {
+      "title": "Off-by-one error skips last item",
+      "category": "logic",
+      "severity": "high",
+      "line_number": 2,
+      "explanation": "The loop in `total_price` uses `range(len(items) - 1)`, which stops before the last item. This means the last item in the list is never included in the total calculation. For example, if items has 3 elements (indices 0, 1, 2), the loop only processes indices 0 and 1, skipping index 2.",
+      "why_it_matters": "This is a critical logic bug that causes incorrect financial calculations. Orders will consistently under-report their total price, potentially leading to revenue loss or incorrect billing.",
+      "suggested_fix": "Change `range(len(items) - 1)` to `range(len(items))` on line 2, or better yet, use a for-each loop: `for item in items:` to avoid index errors entirely."
+    },
+    {
+      "title": "Mutable default argument",
+      "category": "logic",
+      "severity": "high",
+      "line_number": 7,
+      "explanation": "The `add_tag` function uses a mutable list `[]` as a default parameter. In Python, default arguments are created once when the function is defined, not each time the function is called. This means all calls without an explicit `tags` argument share the same list object, causing unexpected behavior where tags persist across function calls.",
+      "why_it_matters": "This is a classic Python pitfall that causes hard-to-debug state leakage. If you call `add_tag('x')` multiple times, the returned list grows unexpectedly, and unrelated code paths may see tags added by other callers.",
+      "suggested_fix": "Change the default to `None` and initialize inside the function: `def add_tag(tag, tags=None):\\n    if tags is None:\\n        tags = []\\n    tags.append(tag)\\n    return tags`"
+    },
+    {
+      "title": "Division by zero risk",
+      "category": "error_handling",
+      "severity": "medium",
+      "line_number": 6,
+      "explanation": "The `average_rating` function divides by `len(ratings)` without checking if the list is empty. If an empty list is passed, a `ZeroDivisionError` will be raised.",
+      "why_it_matters": "This can crash the application if ratings data is empty or not validated before being passed to this function, degrading user experience.",
+      "suggested_fix": "Add a check before division: `if not ratings: return 0` or `if len(ratings) == 0: return None` depending on your desired behavior. Alternatively, document that the function requires a non-empty list."
+    },
+    {
+      "title": "Silent failure in parse_quantity",
+      "category": "error_handling",
+      "severity": "medium",
+      "line_number": 15,
+      "explanation": "The `parse_quantity` function catches all exceptions but returns `None` implicitly without any indication of failure. The caller cannot distinguish between a valid parse and a failed parse, making it difficult to handle errors properly.",
+      "why_it_matters": "Silent failures make debugging harder and can lead to unexpected `None` values propagating through your code, causing issues downstream when the value is used.",
+      "suggested_fix": "Either raise a custom exception with a meaningful message, return a tuple like `(success, value)`, or use a logging statement to track failures. For example: `except ValueError: raise ValueError(f'Invalid quantity: {text}')`"
+    },
+    {
+      "title": "Unsafe type conversion without validation",
+      "category": "input_validation",
+      "severity": "medium",
+      "line_number": 19,
+      "explanation": "The `set_quantity` function converts the `quantity` parameter directly to `int()` without validation. If a non-numeric string is passed, an unhandled `ValueError` will be raised. Additionally, there is no check for negative quantities, which may be invalid for order quantities.",
+      "why_it_matters": "Without input validation, invalid data can corrupt order state or crash the application. Negative quantities, for instance, would likely indicate a data entry error that should be caught early.",
+      "suggested_fix": "Validate the input before conversion: `try:\\n    qty = int(quantity)\\n    if qty < 0:\\n        raise ValueError('Quantity must be non-negative')\\n    order['quantity'] = qty\\nexcept ValueError as e:\\n    raise ValueError(f'Invalid quantity: {e}')`"
+    }
+  ],
+  "tools.py": [
+    {
+      "title": "Command Injection via Unsanitized User Input in archive_logs",
+      "category": "security",
+      "severity": "high",
+      "line_number": 7,
+      "explanation": "The `archive_logs` function concatenates user-supplied `folder` directly into a shell command string passed to `subprocess.run` with `shell=True`. An attacker can inject arbitrary shell commands by crafting a malicious folder name, e.g., `folder='.; rm -rf /'` would execute destructive commands.",
+      "why_it_matters": "This is a critical security vulnerability that allows remote code execution and system compromise. Any untrusted input to this function can lead to complete system takeover.",
+      "suggested_fix": "Use `subprocess.run` with a list of arguments and `shell=False` (the default). Pass the folder path as a separate argument: `subprocess.run(['tar', '-czf', 'logs.tgz', folder], check=True)`. This prevents shell interpretation of special characters."
+    },
+    {
+      "title": "Command Injection via Unsanitized User Input in ping",
+      "category": "security",
+      "severity": "high",
+      "line_number": 10,
+      "explanation": "The `ping` function concatenates user-supplied `host` directly into a shell command via `os.popen`. An attacker can inject arbitrary shell commands by providing input like `host='8.8.8.8; malicious_command'`.",
+      "why_it_matters": "This allows arbitrary command execution with the privileges of the Python process. An attacker can steal data, modify files, or compromise the system.",
+      "suggested_fix": "Replace `os.popen` with `subprocess.run` using a list and `shell=False`: `result = subprocess.run(['ping', '-c', '1', host], capture_output=True, text=True); return result.stdout`. This safely isolates the user input as a data argument."
+    },
+    {
+      "title": "Arbitrary Code Execution via eval() on Untrusted Input",
+      "category": "security",
+      "severity": "high",
+      "line_number": 13,
+      "explanation": "The `calculate` function uses `eval()` on user-supplied `expression`, which allows arbitrary Python code execution. An attacker can execute any code, including `__import__('os').system('...')` for shell commands.",
+      "why_it_matters": "This is an unrestricted code execution vulnerability. There is no safe way to use `eval()` on untrusted input\u2014it can compromise the entire system regardless of sandboxing attempts.",
+      "suggested_fix": "Use a safe expression evaluator like `ast.literal_eval()` for simple literals, or `numexpr` for mathematical expressions. For example: `import ast; ast.literal_eval(expression)` safely evaluates literals only. If you need more complex math, use `numexpr.evaluate(expression, local_dict={...})` with a restricted namespace."
+    },
+    {
+      "title": "Unsafe Deserialization of Untrusted Data",
+      "category": "security",
+      "severity": "high",
+      "line_number": 16,
+      "explanation": "The `load_session` function uses `pickle.loads()` on untrusted `blob` data. Pickle can deserialize arbitrary Python objects and execute code during unpickling, allowing remote code execution.",
+      "why_it_matters": "An attacker can craft a malicious pickle blob that executes arbitrary code when deserialized. This is a well-known vulnerability in pickle deserialization workflows.",
+      "suggested_fix": "Use a safer serialization format like JSON: `import json; return json.loads(blob)`. If you must use pickle, only unpickle data you created and control. Alternatively, use `pickle.loads(blob, restrictive=True)` (Python 3.13+) or libraries like `cloudpickle` with explicit validation."
+    },
+    {
+      "title": "Unsafe YAML Deserialization without Loader Specification",
+      "category": "security",
+      "severity": "high",
+      "line_number": 19,
+      "explanation": "The `load_config` function calls `yaml.load()` without specifying a Loader. This uses the unsafe default loader that can execute arbitrary Python code embedded in YAML, similar to pickle vulnerabilities.",
+      "why_it_matters": "An attacker can craft a YAML file with embedded Python code that executes when loaded, leading to remote code execution.",
+      "suggested_fix": "Specify `yaml.safe_load()` instead of `yaml.load()`. Use: `with open(path) as handle: return yaml.safe_load(handle)`. This restricts deserialization to safe YAML types only."
+    }
+  ],
+  "web_client.py": [
+    {
+      "title": "Disabled SSL Certificate Verification",
+      "category": "security",
+      "severity": "high",
+      "line_number": 7,
+      "explanation": "The `fetch_profile` function disables SSL certificate verification with `verify=False`. This makes the application vulnerable to man-in-the-middle (MITM) attacks, where an attacker can intercept and manipulate HTTPS requests.",
+      "why_it_matters": "SSL certificate verification is a critical security control. Disabling it allows attackers on the network path to intercept sensitive data, inject malicious content, or impersonate legitimate services.",
+      "suggested_fix": "Remove `verify=False` from the `requests.get()` call. The default behavior verifies SSL certificates. If you need to work with self-signed certificates in development, use a proper certificate bundle instead:\n```python\ndef fetch_profile(url):\n    return requests.get(url, timeout=10).json()\n```"
+    },
+    {
+      "title": "Path Traversal Vulnerability in File Upload Handler",
+      "category": "security",
+      "severity": "high",
+      "line_number": 13,
+      "explanation": "The `read_upload` function directly joins user-supplied `filename` with `UPLOAD_DIR` without validation. An attacker can use path traversal sequences like `../` to read files outside the upload directory (e.g., `../../etc/passwd`).",
+      "why_it_matters": "Without proper validation, attackers can read sensitive system files, configuration data, or other users' uploads, leading to data disclosure and potential privilege escalation.",
+      "suggested_fix": "Validate the filename to prevent path traversal:\n```python\ndef read_upload(filename):\n    # Prevent path traversal attacks\n    if \"..\" in filename or filename.startswith(\"/\"):\n        raise ValueError(\"Invalid filename\")\n    filepath = os.path.join(UPLOAD_DIR, filename)\n    # Ensure the resolved path is still within UPLOAD_DIR\n    if not os.path.abspath(filepath).startswith(os.path.abspath(UPLOAD_DIR)):\n        raise ValueError(\"Path outside upload directory\")\n    with open(filepath) as handle:\n        return handle.read()\n```"
+    },
+    {
+      "title": "Missing Error Handling for Network Requests",
+      "category": "error_handling",
+      "severity": "medium",
+      "line_number": 7,
+      "explanation": "Both `fetch_profile` and `fetch_preview` make network requests without handling exceptions. Network issues (timeouts, connection errors, invalid JSON responses) will crash the application.",
+      "why_it_matters": "Unhandled exceptions make applications unstable and can expose internal error details to users. Proper error handling improves reliability and user experience.",
+      "suggested_fix": "Wrap requests in try-except blocks:\n```python\ndef fetch_profile(url):\n    try:\n        return requests.get(url, timeout=10).json()\n    except requests.RequestException as e:\n        raise ValueError(f\"Failed to fetch profile: {e}\")\n    except ValueError as e:\n        raise ValueError(f\"Invalid JSON response: {e}\")\n\ndef fetch_preview(user_url):\n    try:\n        return requests.get(user_url, timeout=5).text\n    except requests.RequestException as e:\n        raise ValueError(f\"Failed to fetch preview: {e}\")\n```"
+    },
+    {
+      "title": "Missing Error Handling for File Operations",
+      "category": "error_handling",
+      "severity": "medium",
+      "line_number": 13,
+      "explanation": "The `read_upload` function doesn't handle file operation errors (e.g., `FileNotFoundError`, `PermissionError`). If a file doesn't exist or cannot be read, the application will crash.",
+      "why_it_matters": "Uncaught file errors crash the application and can expose internal paths and system details in error messages.",
+      "suggested_fix": "Add error handling:\n```python\ndef read_upload(filename):\n    try:\n        with open(os.path.join(UPLOAD_DIR, filename)) as handle:\n            return handle.read()\n    except FileNotFoundError:\n        raise ValueError(f\"File not found: {filename}\")\n    except (IOError, OSError) as e:\n        raise ValueError(f\"Failed to read file: {e}\")\n```"
+    }
+  ]
+}

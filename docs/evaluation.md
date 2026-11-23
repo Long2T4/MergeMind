@@ -26,7 +26,7 @@ What MergeMind catches and misses on code with known problems, how this was meas
 
 ## Results (2026-11-23, scanners only)
 
-**Environment:** Linux, Python 3.12, Semgrep 1.184.0 with MergeMind's rules, Bandit 1.9.4. **The AI was not run**; see [the AI evaluation](#ai-evaluation-not-run-yet). Raw output: [`results/2026-11-23-scanners.json`](../backend/evaluation/results/2026-11-23-scanners.json).
+**Environment:** Linux, Python 3.12, Semgrep 1.184.0 with MergeMind's rules, Bandit 1.9.4. Scanners only; the AI is reported [below](#ai-evaluation-2026-11-23-one-run-before-the-line-number-fix). Raw output: [`results/2026-11-23-scanners.json`](../backend/evaluation/results/2026-11-23-scanners.json).
 
 | Measure | `main` before Stage 14 | Stage 14 |
 |---|---|---|
@@ -67,14 +67,44 @@ What MergeMind catches and misses on code with known problems, how this was meas
 ## What this shows
 
 - **Rule-covered problems:** the scanners caught all 11 targeted problems, with no false positives on the look-alike safe code. When both scanners agree, a finding reaches medium confidence. With the AI also agreeing it reaches high, as the demo shows.
-- **Other problems:** design, logic and data-flow problems (SSRF, path traversal, off-by-one, missing validation) are outside the scanners' rules. Only the AI can catch them. **How often it does hasn't been measured yet.**
+- **Other problems:** design, logic and data-flow problems (SSRF, path traversal, off-by-one, missing validation) are outside the scanners' rules. Only the AI can catch them. In one run it caught 4 of 8 (see below).
 - **Limits of this evaluation:**
   - The dataset is small and written by the team, and it's Python only, so the numbers show behavior, not general accuracy.
   - The Semgrep SQL rule can also match English text that reads like SQL, such as `f"delete from your list? {x}"`.
 
-## AI evaluation (not run yet)
+## AI evaluation (2026-11-23, one run, before the line-number fix)
 
-Measuring the AI needs real Anthropic calls: one per case file, so 7 calls at Claude Haiku pricing. It needs team approval:
+The real AI ran once on the same dataset: 7 Anthropic calls, Claude Haiku 4.5, one per case file. Raw files:
+- [`results/2026-11-23-ai-unnumbered.json`](../backend/evaluation/results/2026-11-23-ai-unnumbered.json);
+- the AI's own findings, [`results/2026-11-23-ai-findings-unnumbered.json`](../backend/evaluation/results/2026-11-23-ai-findings-unnumbered.json), which can be re-scored without new calls.
+
+| Measure | Scanners only | Scanners + AI |
+|---|---|---|
+| Known problems caught | 13/19 | **15/19** |
+| Caught by the AI | – | 7/19 |
+| Other problems (need the AI) | 2/8 | **4/8**: SSRF, off-by-one, swallowed exception, insecure token |
+| Findings on a labeled problem's line, all sources agreeing (high confidence) | 0 | 2 |
+| Duplicate cards for one problem | 0 | 3 |
+| False positives on the clean files | 0 | 10 (all from the AI) |
+| AI findings not matching a labeled problem | – | 12 |
+
+**What it found: the AI's line numbers were often wrong.**
+- **Wrong lines:** most of the 12 unmatched AI findings describe a real labeled problem, but point 1–4 lines away, often at a blank line. For example, the SQL injection was reported on line 15 instead of 19.
+- **Why it matters:**
+  - such a finding can't merge with the scanners' finding for the same problem, so the user sees it twice (the 3 duplicates);
+  - it loses the confidence that agreement would give;
+  - it isn't counted as a catch.
+- **The cause:** manual reviews sent the code without line numbers, so the model counted lines itself. Pull request reviews already sent numbered lines, which in Stage 11 took exact lines from 1 of 5 to 5 of 6.
+- **Fixed in Stage 14:** manual reviews are now sent numbered too. A submission too long to number within the prompt limit is still sent as before.
+- **Not yet re-measured:** the fix's effect on these numbers needs another 7 approved calls (see below).
+
+**False positives:** the 10 AI findings on the clean files are partly reasonable style remarks, such as a connection that isn't closed or a missing file encoding. Some are wrong: it called `ast.literal_eval` "unsafe evaluation", and `subprocess.run` with an argument list "unsafe". This is why AI-only findings show low confidence.
+
+**Not caught by anything:** path traversal, division by zero on an empty list, the mutable default argument, and the missing quantity check. Some of these the AI described at a nearby wrong line, so a re-run may change this.
+
+### Running the AI evaluation
+
+It needs approved Anthropic calls: one per case file, so 7 calls at Claude Haiku pricing.
 
 ```bash
 cd backend
