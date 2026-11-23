@@ -21,7 +21,7 @@ Last verified on 2026-11-23 on `stage-14/evaluation-demo`, from `main` at `d9aa8
 | Frontend tests | 115 passed |
 | Production build | Passed |
 | CI | All 4 jobs pass on `main`. The Stage 14 branch hasn't run in CI yet |
-| Database migrations | `0001`–`0004` applied to Supabase (the last on 2026-11-09). `0005`–`0007` are written and tested but **not applied** |
+| Database migrations | `0001`–`0007` applied to Supabase (`0005`–`0007` on 2026-11-23, verified against a backup). `0008` (removes the `anon`/`authenticated` roles' access to the original tables) is written and rehearsed on a restored copy but **not applied** |
 | Live Supabase and Anthropic verification | Passed on 2026-11-05 (reviews #13 and #14). Stages 12–14 not yet verified live |
 | Deployment | Configured and checked locally ([deployment.md](deployment.md)); **not deployed** |
 

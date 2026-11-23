@@ -17,14 +17,14 @@ Stage 14 requires that a public deployment has a login or strict limits, and nev
 | Saved code stays private | Each user sees only their own projects, reviews and findings; others get 404 |
 | Only known people sign up | Supabase: turn off **Allow new users to sign up**, invite users, and turn on **Confirm email** ([supabase-auth.md](supabase-auth.md)) |
 | AI spending is capped | <ul><li>Server-wide: 30 manual reviews per hour.</li><li>Pull request reviews: 3 at once and 20 per hour.</li><li>Beginner explanations: 20 per hour and 3 at once.</li><li>Plus a monthly spending limit in the Anthropic console.</li></ul> |
-| The database isn't reachable with the public key | Row Level Security on every table; check the Supabase Security Advisor |
+| The database isn't reachable with the public key | Row Level Security on every table, and no table or sequence privileges for `anon`/`authenticated` (migrations `0003`, `0004`, `0008`); check the Supabase Security Advisor |
 | Only the frontend can call the API from a browser | `CORS_ALLOWED_ORIGINS` = the frontend's URL; a wildcard is refused |
 | No API schema browsing | `API_DOCS_ENABLED=false` (the image's default) |
 | Secrets stay out of the repository | Enter them in Render and Vercel; `render.yaml` marks them `sync: false` |
 
 ## Steps, in order
 
-1. **Approvals.** Migrations `0005`–`0007` will change the shared Supabase database, so get team approval and take a backup first.
+1. **Approvals.** Migrations change the shared Supabase database, so get team approval and take a backup first. `0005`–`0007` were applied on 2026-11-23; `0008` (removes the API roles' access to the original tables) is next.
 2. **Supabase settings:**
    - asymmetric JWT signing keys;
    - **Confirm email** on;

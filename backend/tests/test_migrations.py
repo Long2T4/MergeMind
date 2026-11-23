@@ -23,7 +23,7 @@ from app.models import models  # noqa: F401 (registers the tables on Base)
 
 BACKEND = Path(__file__).resolve().parents[1]
 POSTGRES_URL = os.environ.get("MIGRATION_TEST_DATABASE_URL")
-HEAD = "0007_beginner_explanations"
+HEAD = "0008_revoke_api_role_access"
 API_ROLES = ("anon", "authenticated")
 TABLES = ("review_issues", "code_reviews", "pull_request_files", "pull_requests", "projects", "users",
           "alembic_version")
@@ -362,6 +362,9 @@ def postgres(engine):
     return engine
 
 
+ORIGINAL_TABLES = ("users", "projects", "code_reviews", "review_issues")
+
+
 def _rls_enabled(connection, table: str) -> bool:
     return connection.execute(text("SELECT relrowsecurity FROM pg_class WHERE relname = :t"), {"t": table}).scalar()
 
@@ -394,17 +397,36 @@ def test_version_table_is_hidden_from_supabase_api_roles(postgres):
                     assert connection.execute(text(
                         f"SELECT has_sequence_privilege('{role}', pg_get_serial_sequence('public.{table}', 'id'), 'USAGE')"
                     )).scalar() is False
-                # Existing app table privileges are untouched.
-                assert connection.execute(text(
-                    f"SELECT has_table_privilege('{role}', 'public.code_reviews', 'SELECT')"
-                )).scalar() is True
-            for table in PR_TABLES:
+                # Stage 14 (0008): the original app tables too, and their sequences.
+                for table in ORIGINAL_TABLES:
+                    for privilege in ("SELECT", "INSERT", "UPDATE", "DELETE", "TRUNCATE", "TRIGGER", "REFERENCES"):
+                        assert connection.execute(text(
+                            f"SELECT has_table_privilege('{role}', 'public.{table}', '{privilege}')"
+                        )).scalar() is False, (role, table, privilege)
+                    assert connection.execute(text(
+                        f"SELECT has_sequence_privilege('{role}', pg_get_serial_sequence('public.{table}', 'id'), 'USAGE')"
+                    )).scalar() is False
+            for table in PR_TABLES + ORIGINAL_TABLES:
                 assert _rls_enabled(connection, table) is True
+
+        # 0008 also changed the default privileges: a table created later by
+        # the same role isn't granted to the API roles.
+        with postgres.begin() as connection:
+            connection.execute(text("CREATE TABLE later_table (id serial PRIMARY KEY)"))
+            assert connection.execute(text(
+                "SELECT has_table_privilege('anon', 'public.later_table', 'SELECT')")).scalar() is False
+            assert connection.execute(text(
+                "SELECT has_sequence_privilege('anon', 'public.later_table_id_seq', 'USAGE')")).scalar() is False
+            connection.execute(text("DROP TABLE later_table"))
 
         with postgres.connect() as connection:
             connection.execute(text("SET ROLE anon"))
             with pytest.raises(DBAPIError, match="permission denied"):
                 connection.execute(text("SELECT version_num FROM alembic_version"))
+            connection.rollback()
+            connection.execute(text("SET ROLE anon"))
+            with pytest.raises(DBAPIError, match="permission denied"):
+                connection.execute(text("TRUNCATE review_issues"))  # not covered by Row Level Security
             connection.rollback()
     finally:
         _drop_all(postgres)
@@ -414,6 +436,52 @@ def test_version_table_is_hidden_from_supabase_api_roles(postgres):
             for role in created:
                 connection.execute(text(f'DROP ROLE "{role}"'))
 
+
+
+def test_revoking_api_roles_keeps_data_and_the_owner_can_still_work(postgres):
+    """0008 on a Stage 13 database set up like Supabase: data kept, and the
+    backend (the tables' owner) can still read, write and use the sequences."""
+    created = []
+    with postgres.begin() as connection:
+        for role in API_ROLES:
+            if not connection.execute(text("SELECT 1 FROM pg_roles WHERE rolname = :r"), {"r": role}).scalar():
+                connection.execute(text(f'CREATE ROLE "{role}" NOLOGIN'))
+                created.append(role)
+    try:
+        migrate(postgres, "0007_beginner_explanations")
+        _seed_stage_10_review(postgres)
+        with postgres.begin() as connection:  # Supabase's grants on the original tables
+            for table in ORIGINAL_TABLES:
+                connection.execute(text(f"GRANT ALL ON TABLE {table} TO anon, authenticated"))
+                connection.execute(text(f"GRANT ALL ON SEQUENCE {table}_id_seq TO anon, authenticated"))
+            assert connection.execute(text("SELECT has_table_privilege('anon', 'public.users', 'TRUNCATE')")).scalar()
+
+        migrate(postgres)
+
+        assert current_revision(postgres) == HEAD
+        with postgres.begin() as connection:
+            assert connection.execute(text("SELECT explanation FROM review_issues")).scalar_one() == "Kept finding"
+            assert connection.execute(text("SELECT count(*) FROM code_reviews")).scalar_one() == 1
+            assert connection.execute(text("SELECT has_table_privilege('anon', 'public.users', 'TRUNCATE')")).scalar() is False
+            # The owner still works normally, including new ids from the sequences.
+            connection.execute(text("SELECT setval('projects_id_seq', (SELECT max(id) FROM projects))"))
+            new_id = connection.execute(text(
+                "INSERT INTO projects (user_id, name, created_at) VALUES (1, 'After 0008', now()) RETURNING id")).scalar_one()
+            connection.execute(text("UPDATE projects SET name = 'Renamed' WHERE id = :id"), {"id": new_id})
+            connection.execute(text("DELETE FROM projects WHERE id = :id"), {"id": new_id})
+        # The downgrade grants nothing back.
+        migrate(postgres, "0007_beginner_explanations", downgrade=True)
+        with postgres.connect() as connection:
+            assert connection.execute(text("SELECT has_table_privilege('anon', 'public.users', 'SELECT')")).scalar() is False
+        migrate(postgres)
+        assert schema_differences(postgres) == []
+    finally:
+        _drop_all(postgres)
+        with postgres.begin() as connection:
+            connection.execute(text("ALTER DEFAULT PRIVILEGES IN SCHEMA public REVOKE ALL ON TABLES FROM anon, authenticated"))
+            connection.execute(text("ALTER DEFAULT PRIVILEGES IN SCHEMA public REVOKE ALL ON SEQUENCES FROM anon, authenticated"))
+            for role in created:
+                connection.execute(text(f'DROP ROLE "{role}"'))
 
 def test_migrations_still_run_as_a_non_superuser_table_owner(postgres):
     # Like Supabase's postgres role: owns the tables, is not a superuser, and

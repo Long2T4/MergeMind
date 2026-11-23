@@ -352,7 +352,7 @@ Stages 1–13, a frontend redesign and beginner explanations are complete and me
 | 13 | Static Analysis Integration | Complete: merged (PR #16). Semgrep (local rules) and Bandit, merged findings, evidence-based confidence and scanner status |
 | 14 | Evaluation and Final Demo | Done on its branch, not merged: evaluation, demo material and script, deployment configuration. Not deployed; the AI evaluated once, re-run after the line-number fix pending |
 
-Migrations `0005`–`0007` aren't applied to Supabase yet. See the full [project plan](docs/PROJECT_PLAN.md).
+Supabase is at migration `0007`; `0008`, which removes the public API roles' access to the original tables, isn't applied yet. See the full [project plan](docs/PROJECT_PLAN.md).
 
 ## Contributors
 
