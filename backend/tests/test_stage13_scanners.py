@@ -159,3 +159,21 @@ def test_only_python_is_scanned():
 ])
 def test_ai_findings_get_a_kind_only_when_clear(title, explanation, kind):
     assert kind_from_text(title, explanation) == kind
+
+
+def test_bandit_ignores_an_empty_string_assigned_to_a_secret_name():
+    """Stage 14 evaluation: TOKEN = "" isn't a hard-coded secret."""
+    empty = {"test_id": "B105", "issue_text": "Possible hardcoded password: ''", "issue_severity": "LOW",
+             "issue_confidence": "MEDIUM", "line_number": 7}
+    assert normalize_bandit_finding(empty) is None
+    real = {**empty, "issue_text": "Possible hardcoded password: 'Winter2024!'"}
+    assert normalize_bandit_finding(real)["kind"] == "hardcoded-secret"
+
+
+def test_bandit_blacklist_checks_get_a_readable_title():
+    finding = normalize_bandit_finding({
+        "test_id": "B311", "test_name": "blacklist", "issue_severity": "LOW", "issue_confidence": "HIGH",
+        "line_number": 3,
+        "issue_text": "Standard pseudo-random generators are not suitable for security/cryptographic purposes."})
+    assert finding["title"] == "Standard pseudo-random generators are not suitable for security/cryptographic purposes"
+

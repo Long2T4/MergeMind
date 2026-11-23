@@ -111,3 +111,12 @@ def test_code_with_a_syntax_error_is_reported_as_failed_not_clean():
     result = collect_security_findings("def broken(:\n    pass\n", "python")
     assert result["bandit_status"] == "failed"
     assert result["bandit"] == []
+
+
+def test_semgrep_finds_sql_built_from_strings_anywhere():
+    """Stage 14 evaluation: SQL built with %, +, .format() or an f-string is
+    found even when stored in a variable first. Parameterized queries and
+    ordinary text starting with "select"/"update" are not."""
+    need("semgrep")
+    assert found(run_semgrep_scan(code("sql_shapes.py"))) == {line: "sql-injection" for line in range(2, 7)}
+
