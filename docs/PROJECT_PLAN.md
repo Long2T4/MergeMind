@@ -10,20 +10,20 @@ MergeMind is a university senior capstone and resume project, not a commercial p
 
 ## Current status
 
-Last verified on 2026-11-17 on `fix/stage-13-pr16`, which builds on PR #16 (`edfdcbe`) and `main` at `04bec03`. **Stage 13 is implemented and tested but not merged:** PR #16 is still open.
+Last verified on 2026-11-23 on `stage-14/evaluation-demo`, from `main` at `d9aa874`. **Stage 14 is done on its branch, but not merged.**
 
 | Item | Status |
 |---|---|
-| Stages 1–12 | Complete and merged (Stage 12: PR #15, `04bec03`) |
+| Stages 1–13 and beginner explanations | Complete and merged (Stage 13: PR #16; beginner explanations: PR #17, `d9aa874`) |
 | Frontend redesign | Complete |
-| Current stage | **Stage 13: Static Analysis Integration**: implemented and tested; **PR #16 not merged** |
-| Backend tests | Windows + local PostgreSQL: 506 passed, 6 skipped (4 need Semgrep, which doesn't run on Windows). Linux with real Semgrep and Bandit, no network: 447 passed, 65 PostgreSQL-only skipped |
-| Frontend tests | 111 passed |
+| Current stage | **Stage 14: Evaluation and Final Demo**: done on its branch, not merged. Not deployed |
+| Backend tests | Windows + local PostgreSQL: 549 passed, 7 skipped (5 need Semgrep, which doesn't run on Windows). Linux with real Semgrep and Bandit required: 481 passed, 75 PostgreSQL-only skipped |
+| Frontend tests | 115 passed |
 | Production build | Passed |
-| CI | All 4 jobs pass on `main`. The Stage 13 fixes haven't run in CI yet |
-| Database migrations | `0001`–`0004` applied to Supabase (the last on 2026-11-09). `0005_stage12_accounts_feedback` and `0006_review_analysis_status` are written and tested but **not applied** |
-| Live Supabase and Anthropic verification | Passed on 2026-11-05 (reviews #13 and #14) |
-| Deployment | None; local only |
+| CI | All 4 jobs pass on `main`. The Stage 14 branch hasn't run in CI yet |
+| Database migrations | `0001`–`0004` applied to Supabase (the last on 2026-11-09). `0005`–`0007` are written and tested but **not applied** |
+| Live Supabase and Anthropic verification | Passed on 2026-11-05 (reviews #13 and #14). Stages 12–14 not yet verified live |
+| Deployment | Configured and checked locally ([deployment.md](deployment.md)); **not deployed** |
 
 ## Completed work
 
@@ -266,7 +266,7 @@ Stages 11, 12 and 13 can run mostly in parallel after Stage 10, if each has a cl
 
 **Out of scope:** ESLint (optional future work), auto-fixing, running tests.
 
-**Progress (2026-11-17):** implemented by Yudith Vazquez-Jacinto in PR #16 (`edfdcbe`). Long Truong completed the integration in the same pull request. **Not merged.** See the [Stage 13 report](reviews/stage-13-static-analysis-review.md).
+**Progress (2026-11-17):** implemented by Yudith Vazquez-Jacinto in PR #16 (`edfdcbe`). Long Truong completed the integration in the same pull request. Merged (`6424214`). See the [Stage 13 report](reviews/stage-13-static-analysis-review.md).
 
 | Task | Status |
 |---|---|
@@ -305,6 +305,19 @@ Stages 11, 12 and 13 can run mostly in parallel after Stage 10, if each has a cl
 
 **Out of scope:** new features and high-scale infrastructure.
 
+**Progress (2026-11-23):** done on `stage-14/evaluation-demo`, **not merged**.
+
+| Task | Status |
+|---|---|
+| Evaluation | Done for the scanners: [evaluation.md](evaluation.md), with a reproducible runner (`python -m evaluation.run_evaluation`) on 19 known problems and clean look-alikes. Results: 11/11 rule-covered problems caught, 0 false positives (was 10/11 and 1 on `main`). **The AI isn't evaluated yet**; it needs 7 approved Anthropic calls, and the runner records and replays them |
+| Fixes from the evaluation | Semgrep now finds SQL built into a variable; Bandit's empty-secret false positive removed; readable Bandit "blacklist" titles |
+| Demo repository | [`demo/`](../demo/README.md): the published demo repository and PR #1, plus a new PR #2 (scanners and AI agree). Rebuilt identically by `demo/build_demo_repo.py`. PR #2 isn't published yet |
+| Scripted demo | [demo-script.md](demo-script.md): rehearsed start to finish with real scanners and fake sign-in, GitHub and AI, at desktop and phone widths. **A live rehearsal with the real AI is still needed** |
+| Integration and regression testing | Full suites on Windows + PostgreSQL and on Linux with the real scanners; browser rehearsal of the whole demo |
+| Deployment | Configured, not deployed: [deployment.md](deployment.md), `backend/Dockerfile`, `render.yaml`, `frontend/vercel.json`. The image was checked locally. Sign-in is required, AI spending is capped, and CORS and API docs are locked down |
+| Demo video (fallback) | Not recorded; record it during the live rehearsal |
+| Documentation | README, this plan, evaluation, demo script, deployment guide, [Stage 14 report](reviews/stage-14-evaluation-demo-review.md) |
+
 ### If time runs short
 
 Cut in this order:
@@ -332,11 +345,11 @@ Don't cut Stage 10, Stage 11, the evaluation, or the demo.
 | Project creation UI | Done (create, rename, select) | Stage 12 |
 | Developer Feedback | Done (outcomes on each finding) | Stage 12 |
 | Learning outcomes | Done (outcomes by category) | Stage 12 |
-| Semgrep and Bandit | Done for Python; PR #16 not merged | Stage 13 |
-| Evidence-based confidence | Done: agreement between sources raises it; PR #16 not merged | Stage 13 |
-| Quality evaluation | Not implemented | Stage 14 |
-| Demo repository | Not implemented | Stage 14 |
-| Deployment | Not implemented | Stage 14, if feasible |
+| Semgrep and Bandit | Done for Python (PR #16) | Stage 13 |
+| Evidence-based confidence | Done: agreement between sources raises it (PR #16) | Stage 13 |
+| Quality evaluation | Scanners done; AI evaluation awaiting approved calls | Stage 14 |
+| Demo repository | Done (PR #2 not yet published) | Stage 14 |
+| Deployment | Configured and checked locally; not deployed | Stage 14, if feasible |
 
 **Optional future work (only if time remains):**
 - ESLint
@@ -366,11 +379,7 @@ Don't cut Stage 10, Stage 11, the evaluation, or the demo.
 - Private code isn't supported.
 - Remember that selected code is sent to the AI provider.
 
-Stage 12 limits every route to the signed-in user's own data, so `GET /review-history/{id}` and `/stats?q=` work only on your own reviews. Search is still an unindexed scan, and `GET /code-reviews/` is unbounded per user. Before any deployment, also complete the [Stage 12 checklist](reviews/stage-12-accounts-feedback-review.md#before-deployment):
-- invite-only sign-up;
-- email confirmation;
-- Row Level Security on every table;
-- a configurable CORS origin.
+Stage 12 limits every route to the signed-in user's own data, so `GET /review-history/{id}` and `/stats?q=` work only on your own reviews. Search is still an unindexed scan, and `GET /code-reviews/` is unbounded per user. Before any deployment, follow the security rules and steps in [deployment.md](deployment.md).
 
 Every new route must depend on `get_current_user` and filter by the user's projects.
 

@@ -1,6 +1,6 @@
 # Stage 13: Static Analysis Integration — Review Summary
 
-**Status:** implemented and tested in PR [#16](https://github.com/Long2T4/MergeMind/pull/16), **not merged**. Migration `0006` isn't applied to Supabase.
+**Status:** merged in PR [#16](https://github.com/Long2T4/MergeMind/pull/16) (`6424214`). Migration `0006` isn't applied to Supabase yet.
 
 ## What was implemented
 
