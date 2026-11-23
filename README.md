@@ -2,9 +2,9 @@
 
 MergeMind is an AI code review platform for students and junior developers. It reviews submitted code and explains each finding: what is wrong, why it matters, and how to fix it. Reviews are saved, so developers can revisit them and see which kinds of issues keep appearing.
 
-MergeMind is a university senior capstone project built by a student team. It runs locally today. It has not been deployed, and it isn't ready to host private code (see [Current limitations](#current-limitations)).
+MergeMind is a university senior capstone project built by a student team. It runs locally. Deployment is prepared but hasn't been done (see [Deployment](#deployment)), and it isn't meant for private code (see [Current limitations](#current-limitations)).
 
-> **Stage 13 (Semgrep and Bandit) is described below but not merged yet.** It is in pull request [#16](https://github.com/Long2T4/MergeMind/pull/16).
+> **Stage 14 (evaluation, demo and deployment configuration) is described below but not merged yet.**
 
 ## Why MergeMind
 
@@ -202,6 +202,8 @@ Copy `backend/.env.example` to `backend/.env`, and `frontend/.env.example` to `f
 | `AI_PROVIDER` | No | Defaults to `anthropic`, the only supported provider |
 | `SEMGREP_EXECUTABLE` | No | Path to `semgrep` if it isn't on PATH (see [Static analysis](#static-analysis)) |
 | `BANDIT_EXECUTABLE` | No | Path to `bandit`; by default the one installed with the backend |
+| `CORS_ALLOWED_ORIGINS` | When deployed | Comma-separated browser origins allowed to call the API, e.g. the deployed frontend's URL. Defaults to `http://localhost:5173`; `*` is refused |
+| `API_DOCS_ENABLED` | No | `false` turns off `/docs` and `/openapi.json` (the Docker image does this) |
 | `VITE_SUPABASE_URL` | Yes (frontend) | The same project URL |
 | `VITE_SUPABASE_ANON_KEY` | Yes (frontend) | The project's publishable (anon) key. It is public by design; never use the secret or `service_role` key here |
 | `VITE_API_BASE_URL` | No | Frontend setting; defaults to `http://localhost:8000` |
@@ -264,7 +266,7 @@ npm install
 npm run dev
 ```
 
-The app runs at `http://localhost:5173`. The backend only accepts browser requests from this address.
+The app runs at `http://localhost:5173`. By default the backend only accepts browser requests from this address (`CORS_ALLOWED_ORIGINS`).
 
 ## Running tests
 
@@ -293,9 +295,33 @@ CI needs no secrets.
 
 The full flow was verified live on 2026-11-05, against Supabase and the Anthropic API. It covered the migrations, a normal review, a review with project context, History, and the Learning data. See the [Stage 10 report](docs/reviews/stage-10-foundation-review.md#live-review-results). Pull request reviews were verified live on 2026-11-09 with [a demo pull request](https://github.com/Long2T4/mergemind-demo/pull/1); see the [Stage 11 report](docs/reviews/stage-11-github-pr-review-review.md#live-verification-results).
 
+## Evaluation
+
+MergeMind was measured on fictional code with 19 known problems, plus clean look-alike code; see [docs/evaluation.md](docs/evaluation.md) for the method and results. With Semgrep and Bandit (2026-11-23):
+- **Rule-covered problems:** all 11 caught;
+- **False positives:** none on the clean files;
+- **Duplicate findings:** none.
+
+The 8 logic and data-flow problems need the AI. The AI hasn't been measured yet, because that needs approved Anthropic calls. Run it with `python -m evaluation.run_evaluation` from `backend/`.
+
+## Demo
+
+- **Script:** [docs/demo-script.md](docs/demo-script.md), an 8-minute scripted demo, rehearsed start to finish.
+- **Material:** fictional code in [`demo/`](demo/README.md): the demo repository and its example pull requests, rebuildable with `python demo/build_demo_repo.py`.
+
+## Deployment
+
+[docs/deployment.md](docs/deployment.md) has the steps and the security checklist:
+- frontend on Vercel ([`frontend/vercel.json`](frontend/vercel.json));
+- API in Docker on Render ([`render.yaml`](render.yaml), [`backend/Dockerfile`](backend/Dockerfile));
+- database and sign-in on Supabase.
+
+The image was built and checked locally. **Nothing has been deployed.**
+
 ## Current limitations
 
-- **Not deployed:** sign-in and per-user access exist (Stage 12), but the backend still allows only `http://localhost:5173` as a browser origin, and nothing has been tested on a server. See the [pre-deployment checklist](docs/reviews/stage-12-accounts-feedback-review.md#before-deployment). Selected code is sent to Anthropic, so don't use private code.
+- **Not deployed:** the configuration is ready and the image was checked locally, but nothing has run on Render, Vercel or a live Supabase sign-in. Follow [docs/deployment.md](docs/deployment.md). Selected code is sent to Anthropic, so don't use private code.
+- **One API process:** beginner-explanation limits live in memory, and pull request reviews run in the background inside the API. Don't run several instances.
 - **AI spending:** limits are server-wide, not per user: 30 manual reviews per hour, and for pull requests 3 at once and 20 per hour (at most 200 AI calls). One account can use up the allowance for everyone, so keep sign-up invite-only on a shared server. Also set a monthly spend limit in the Anthropic console.
 - **Beginner explanation spending:** the API process allows 20 generation attempts per rolling hour and 3 at once. Loading a saved explanation uses no allowance. The counters reset on restart and are local to each worker.
 - **Sessions:** after **Log out**, an access token that was already issued stays valid until it expires (one hour by default).
@@ -311,7 +337,7 @@ The full flow was verified live on 2026-11-05, against Supabase and the Anthropi
 
 ## Project status
 
-Stages 1–12 and a frontend redesign are complete and merged. Stage 13 is implemented and tested; its pull request isn't merged yet.
+Stages 1–13, a frontend redesign and beginner explanations are complete and merged. Stage 14 is implemented and tested on its branch, but not merged.
 
 | Stage | Title | Status |
 |---|---|---|
@@ -323,10 +349,10 @@ Stages 1–12 and a frontend redesign are complete and merged. Stage 13 is imple
 | 10 | Foundation and Stability | Complete: CI, migrations, reliability fixes, live verification |
 | 11 | GitHub Pull Request Integration | Complete: verified live on a demo PR; merged (PR #13) |
 | 12 | Developer Feedback and Learning | Complete: merged (PR #15). Accounts, per-user data, projects, finding outcomes and Learning outcomes. Not verified against live Supabase yet |
-| 13 | Static Analysis Integration | In PR #16; **not merged**. Semgrep (local rules) and Bandit, merged findings, evidence-based confidence and scanner status. Migration `0006` not applied to Supabase |
-| 14 | Evaluation and Final Demo | Planned |
+| 13 | Static Analysis Integration | Complete: merged (PR #16). Semgrep (local rules) and Bandit, merged findings, evidence-based confidence and scanner status |
+| 14 | Evaluation and Final Demo | Done on its branch, not merged: evaluation, demo material and script, deployment configuration. Not deployed; the AI isn't evaluated yet |
 
-Planned work isn't available yet. It includes a measured evaluation of review quality. See the full [project plan](docs/PROJECT_PLAN.md).
+Migrations `0005`–`0007` aren't applied to Supabase yet. See the full [project plan](docs/PROJECT_PLAN.md).
 
 ## Contributors
 
@@ -342,3 +368,8 @@ This table lists authors of the merged pull requests in Git. It doesn't capture 
 | Frontend redesign | [#5](https://github.com/Long2T4/MergeMind/pull/5) | Long Truong |
 | Project-Aware Review | [#6](https://github.com/Long2T4/MergeMind/pull/6), [#7](https://github.com/Long2T4/MergeMind/pull/7) | Akhil Sajja |
 | Windows test fix | [#8](https://github.com/Long2T4/MergeMind/pull/8) | Long Truong |
+| Roadmap, Stage 10 (foundation and stability) | [#9](https://github.com/Long2T4/MergeMind/pull/9)–[#12](https://github.com/Long2T4/MergeMind/pull/12) | Long Truong |
+| GitHub pull request reviews (Stage 11) | [#13](https://github.com/Long2T4/MergeMind/pull/13) | Long Truong |
+| Accounts, feedback and learning (Stage 12) | [#15](https://github.com/Long2T4/MergeMind/pull/15) | bhavesh70655 (original), Long Truong (fixes) |
+| Semgrep and Bandit (Stage 13) | [#16](https://github.com/Long2T4/MergeMind/pull/16) | Yudith Vazquez-Jacinto (original), Long Truong (fixes) |
+| Beginner explanations | [#17](https://github.com/Long2T4/MergeMind/pull/17) | Akhil Sajja (original), Long Truong (fixes) |

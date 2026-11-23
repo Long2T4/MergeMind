@@ -1,3 +1,4 @@
+import os
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
@@ -19,16 +20,45 @@ async def lifespan(_app: FastAPI):
     yield
 
 
-app = FastAPI(title="AI Code Review Assistant API", lifespan=lifespan)
+DEFAULT_CORS_ORIGINS = ["http://localhost:5173"]  # the Vite dev server
+
+
+def cors_allowed_origins() -> list[str]:
+    """Browser origins allowed to call the API (Stage 14 deployment).
+
+    CORS_ALLOWED_ORIGINS is a comma-separated list, e.g. the deployed
+    frontend's https URL. A wildcard is refused: any website could then call
+    the API with a signed-in user's token.
+    """
+    raw = os.getenv("CORS_ALLOWED_ORIGINS", "")
+    origins = [origin.strip().rstrip("/") for origin in raw.split(",") if origin.strip()]
+    if "*" in origins:
+        raise RuntimeError("CORS_ALLOWED_ORIGINS must list the frontend's origins, not *")
+    return origins or DEFAULT_CORS_ORIGINS
+
+
+def api_docs_enabled() -> bool:
+    """/docs and /openapi.json: on by default; API_DOCS_ENABLED=false turns them off in production."""
+    return os.getenv("API_DOCS_ENABLED", "true").strip().lower() not in ("0", "false", "no", "off")
+
+
+_docs = api_docs_enabled()
+app = FastAPI(
+    title="AI Code Review Assistant API",
+    lifespan=lifespan,
+    docs_url="/docs" if _docs else None,
+    redoc_url="/redoc" if _docs else None,
+    openapi_url="/openapi.json" if _docs else None,
+)
 
 
 # Stage 12 (install before CORS so browser preflights/errors retain CORS headers)
 from app.stage12.bootstrap import install_stage12
 install_stage12(app)
-# Allow the Vite dev server to call this API during local development.
+# Only the frontend may call this API from a browser (localhost:5173 locally).
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173"],
+    allow_origins=cors_allowed_origins(),
     allow_methods=["*"],
     allow_headers=["*"],
 )

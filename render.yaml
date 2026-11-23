@@ -1,0 +1,26 @@
+# Render Blueprint for MergeMind's API (Stage 14). Not deployed yet: see
+# docs/deployment.md for the order of steps and the security checklist.
+# Secret values are never stored here; enter them in Render's dashboard.
+services:
+  - type: web
+    name: mergemind-api
+    runtime: docker
+    rootDir: backend
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    plan: starter            # a sleeping free instance would stop background PR reviews
+    healthCheckPath: /health
+    autoDeploy: false        # deploy deliberately, after migrations are applied
+    envVars:
+      - key: DATABASE_URL          # Supabase transaction pooler URI
+        sync: false
+      - key: SUPABASE_URL          # https://<project>.supabase.co
+        sync: false
+      - key: ANTHROPIC_API_KEY
+        sync: false
+      - key: GITHUB_TOKEN          # fine-grained, public repositories read-only
+        sync: false
+      - key: CORS_ALLOWED_ORIGINS  # the frontend's URL, e.g. https://mergemind.vercel.app
+        sync: false
+      - key: API_DOCS_ENABLED
+        value: "false"

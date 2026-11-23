@@ -81,12 +81,21 @@ def normalize_bandit_finding(finding: dict) -> dict | None:
         return None
 
     kind = kind_for_bandit_test(test_id)
+
+    # Stage 14 evaluation: Bandit reports an empty string assigned to a
+    # "password"/"token" name (e.g. TOKEN = "") as a hard-coded secret. An
+    # empty value isn't a secret.
+    if kind == "hardcoded-secret" and message.strip().endswith(("''", '""')):
+        return None
+
     test_name = finding.get("test_name")
-    readable_name = (
-        test_name.replace("_", " ").capitalize()
-        if isinstance(test_name, str) and test_name.strip()
-        else f"Bandit check {test_id}"
-    )
+    if test_name == "blacklist":
+        # Bandit's B3xx checks share the name "blacklist"; its message is clearer.
+        readable_name = message.strip().split(". ")[0].rstrip(".")
+    elif isinstance(test_name, str) and test_name.strip():
+        readable_name = test_name.replace("_", " ").capitalize()
+    else:
+        readable_name = f"Bandit check {test_id}"
     more_info = finding.get("more_info")
 
     if kind:

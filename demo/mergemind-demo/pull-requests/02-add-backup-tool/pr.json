@@ -1,0 +1,7 @@
+{
+  "branch": "demo/add-backup-tool",
+  "title": "Add a backup tool",
+  "body": "Fictional demo pull request. Shows Semgrep, Bandit and the AI agreeing on the same problems (high confidence) and a logic bug only the AI can find.",
+  "removed": [],
+  "published": null
+}

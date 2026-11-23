@@ -67,11 +67,20 @@ rules:
     severity: ERROR
     message: The SQL query is built by inserting values into its text, so input can change what the query does (SQL injection).
     metadata: {cwe: "CWE-89", mergemind_kind: sql-injection}
+    # Any SQL text built by inserting values, wherever it is written: inside
+    # .execute(...) or first stored in a variable (Stage 14 evaluation found
+    # the variable case was missed). Parameterized queries don't match.
     pattern-either:
-      - pattern: $CUR.execute("..." % ..., ...)
-      - pattern: $CUR.execute("...".format(...), ...)
-      - pattern: $CUR.execute(f"...", ...)
-      - pattern: $CUR.execute("..." + $X, ...)
+      - patterns:
+          - pattern-either:
+              - pattern: '"$SQL" % $ARGS'
+              - pattern: '"$SQL".format(...)'
+              - pattern: '"$SQL" + $X'
+          - metavariable-regex:
+              metavariable: $SQL
+              regex: (?i)^["']?\s*(select\s[^\n]*\sfrom\s|insert\s+into\s|update\s+[^\n\s]+\s+set\s|delete\s+from\s)
+      - pattern-regex: (?i)\bf"\s*(select\s[^"\n]*\sfrom\s|insert\s+into\s|update\s+[^"\n\s]+\s+set\s|delete\s+from\s)[^"\n]*\{
+      - pattern-regex: (?i)\bf'\s*(select\s[^'\n]*\sfrom\s|insert\s+into\s|update\s+[^'\n\s]+\s+set\s|delete\s+from\s)[^'\n]*\{
 
   - id: mergemind.weak-hash
     languages: [python]

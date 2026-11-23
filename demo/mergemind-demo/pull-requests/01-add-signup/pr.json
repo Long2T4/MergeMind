@@ -1,0 +1,9 @@
+{
+  "branch": "demo/add-signup",
+  "title": "Add user sign-up helpers",
+  "body": "Fictional demo pull request. Shows changed-line focus, a JavaScript file, skipped files (docs, lockfile, removed file) and a SQL injection.",
+  "removed": [
+    "old_helpers.py"
+  ],
+  "published": "https://github.com/Long2T4/mergemind-demo/pull/1"
+}

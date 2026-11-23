@@ -1,0 +1,12 @@
+# Keep the image small and free of secrets and local files.
+.env
+.env.*
+venv/
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+tests/
+evaluation/
+*.db
+*.sqlite3
