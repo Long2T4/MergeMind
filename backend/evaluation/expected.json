@@ -1,0 +1,162 @@
+{
+  "description": "Fictional code with known problems for MergeMind's Stage 14 evaluation. Files named clean_*.py have no known problems: any finding there is a false positive.",
+  "expected": [
+    {
+      "id": "E01",
+      "file": "accounts.py",
+      "contains": "ADMIN_PASSWORD = \"Winter2024!\"",
+      "kind": "hardcoded-secret",
+      "category": "security",
+      "problem": "Hard-coded admin password"
+    },
+    {
+      "id": "E02",
+      "file": "accounts.py",
+      "contains": "SESSION_SECRET = \"s3cr3t",
+      "kind": "hardcoded-secret",
+      "category": "security",
+      "problem": "Hard-coded signing secret"
+    },
+    {
+      "id": "E03",
+      "file": "accounts.py",
+      "contains": "hashlib.md5(password",
+      "kind": "weak-hash",
+      "category": "security",
+      "problem": "MD5 used to hash passwords"
+    },
+    {
+      "id": "E04",
+      "file": "accounts.py",
+      "contains": "random.choice(",
+      "kind": null,
+      "category": "security",
+      "problem": "Reset token from a non-cryptographic random generator"
+    },
+    {
+      "id": "E05",
+      "file": "accounts.py",
+      "contains": "WHERE email = '%s'\" % email",
+      "kind": "sql-injection",
+      "category": "security",
+      "problem": "SQL built with % formatting, run later"
+    },
+    {
+      "id": "E06",
+      "file": "accounts.py",
+      "contains": "cursor.execute(f\"DELETE",
+      "kind": "sql-injection",
+      "category": "security",
+      "problem": "SQL built with an f-string"
+    },
+    {
+      "id": "E07",
+      "file": "tools.py",
+      "contains": "shell=True",
+      "kind": "shell-injection",
+      "category": "security",
+      "problem": "Shell command built from input"
+    },
+    {
+      "id": "E08",
+      "file": "tools.py",
+      "contains": "os.popen(",
+      "kind": "shell-injection",
+      "category": "security",
+      "problem": "os.popen with input"
+    },
+    {
+      "id": "E09",
+      "file": "tools.py",
+      "contains": "return eval(expression)",
+      "kind": "code-eval",
+      "category": "security",
+      "problem": "eval() on input"
+    },
+    {
+      "id": "E10",
+      "file": "tools.py",
+      "contains": "pickle.loads(blob)",
+      "kind": "deserialization",
+      "category": "security",
+      "problem": "pickle.loads on untrusted data"
+    },
+    {
+      "id": "E11",
+      "file": "tools.py",
+      "contains": "yaml.load(handle)",
+      "kind": "deserialization",
+      "category": "security",
+      "problem": "yaml.load without a safe loader"
+    },
+    {
+      "id": "E12",
+      "file": "web_client.py",
+      "contains": "verify=False",
+      "kind": "tls-disabled",
+      "category": "security",
+      "problem": "Certificate checks turned off"
+    },
+    {
+      "id": "E13",
+      "file": "web_client.py",
+      "contains": "requests.get(user_url",
+      "kind": null,
+      "category": "security",
+      "problem": "Server-side request to a user-supplied URL (SSRF)"
+    },
+    {
+      "id": "E14",
+      "file": "web_client.py",
+      "contains": "os.path.join(UPLOAD_DIR, filename)",
+      "kind": null,
+      "category": "security",
+      "problem": "Path traversal through the file name"
+    },
+    {
+      "id": "E15",
+      "file": "orders.py",
+      "contains": "range(len(items) - 1)",
+      "kind": null,
+      "category": "logic",
+      "problem": "Off-by-one: the last item is skipped"
+    },
+    {
+      "id": "E16",
+      "file": "orders.py",
+      "contains": "sum(ratings) / len(ratings)",
+      "kind": null,
+      "category": "error_handling",
+      "problem": "Division by zero for an empty list"
+    },
+    {
+      "id": "E17",
+      "file": "orders.py",
+      "contains": "tags=[]",
+      "kind": null,
+      "category": "logic",
+      "problem": "Mutable default argument shared between calls"
+    },
+    {
+      "id": "E18",
+      "file": "orders.py",
+      "contains": "except Exception:",
+      "kind": null,
+      "category": "error_handling",
+      "problem": "Errors swallowed; returns None silently"
+    },
+    {
+      "id": "E19",
+      "file": "orders.py",
+      "contains": "order[\"quantity\"] = int(quantity)",
+      "kind": null,
+      "category": "input_validation",
+      "problem": "Quantity not checked (negative or zero)"
+    }
+  ],
+  "clean_files": [
+    "clean_accounts.py",
+    "clean_orders.py",
+    "clean_tools.py"
+  ]
+}
