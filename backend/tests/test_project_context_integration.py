@@ -13,6 +13,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
+from app.services.ai_review_service import number_lines
 from app.database.database import Base, get_db
 from auth_helpers import act_as
 from app.models.models import CodeReview, Project, User
@@ -79,7 +80,8 @@ def test_api_selects_context_sends_to_provider_and_saves_findings(review_api):
     }
     request = provider.messages.create.call_args.kwargs
     sent = json.loads(request["messages"][0]["content"])
-    assert sent["submitted_code"] == payload(project_id)["submitted_code"]
+    # Sent with line numbers (Stage 14); the saved code is unchanged.
+    assert sent["submitted_code"] == number_lines(payload(project_id)["submitted_code"])
     assert sent["related_files"] == [{"path": "backend/app/models.py", "content": "class User: pass\n"}]
     assert "unrelated-secret-marker" not in request["messages"][0]["content"]
     with factory() as db:

@@ -1,5 +1,6 @@
-"""Stage 11 line-number accuracy: pull request files are sent with explicit line
-numbers, and impossible line references are dropped. Manual reviews are unchanged."""
+"""Line-number accuracy: code is sent with explicit line numbers (pull request
+files since Stage 11, manual reviews since Stage 14), and impossible line
+references are dropped."""
 import json
 import os
 
@@ -7,8 +8,10 @@ os.environ.setdefault("DATABASE_URL", "sqlite://")
 
 import pytest
 
+from app.services import ai_review_service
 from app.services.ai_review_service import (
-    PULL_REQUEST_PROMPT_ADDENDUM, _instructions, build_review_payload, number_lines,
+    NUMBERED_CODE_PROMPT_ADDENDUM, PULL_REQUEST_PROMPT_ADDENDUM, _instructions, _review_prompt,
+    build_review_payload, number_lines,
 )
 from app.services.diff_service import focus_findings, line_count
 
@@ -39,10 +42,33 @@ def test_pull_request_payload_sends_numbered_code():
     assert "Do not copy the line-number prefixes" in PULL_REQUEST_PROMPT_ADDENDUM
 
 
-def test_manual_payload_and_prompt_are_unchanged():
+def test_manual_reviews_are_sent_numbered_too():
+    """Stage 14 evaluation: unnumbered manual code made the model's lines 1-4 off."""
     payload = json.loads(build_review_payload(CODE, "python"))
-    assert payload == {"language": "python", "file_path": None, "submitted_code": CODE, "related_files": []}
-    assert PULL_REQUEST_PROMPT_ADDENDUM not in _instructions(None)
+    assert payload == {"language": "python", "file_path": None, "submitted_code": number_lines(CODE),
+                       "related_files": []}
+    manual = _instructions(None)
+    assert NUMBERED_CODE_PROMPT_ADDENDUM in manual and "count lines yourself" in manual
+    assert PULL_REQUEST_PROMPT_ADDENDUM not in manual  # no changed_lines guidance
+
+
+def test_a_manual_submission_too_big_to_number_is_sent_plain_with_matching_instructions():
+    # Many short lines: numbering would push it past the prompt limit, but
+    # the plain code still fits, so it's sent as before instead of refused.
+    code = "total = 1\n" * 20_000  # 200,000 characters, 20,000 lines
+    system, payload = _review_prompt(code, "python")
+    assert json.loads(payload)["submitted_code"] == code
+    assert NUMBERED_CODE_PROMPT_ADDENDUM not in system
+    assert build_review_payload(code, "python") == payload
+
+
+def test_the_claude_call_gets_matching_instructions_and_payload(monkeypatch):
+    sent = {}
+    monkeypatch.setattr(ai_review_service, "request_claude_text",
+                        lambda **kwargs: sent.update(kwargs) or '{"issues": []}')
+    ai_review_service._review_with_claude(CODE, "python")
+    assert NUMBERED_CODE_PROMPT_ADDENDUM in sent["system"]
+    assert json.loads(sent["payload"])["submitted_code"] == number_lines(CODE)
 
 
 def test_numbered_code_still_respects_the_prompt_limit():
