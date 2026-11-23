@@ -309,8 +309,8 @@ Stages 11, 12 and 13 can run mostly in parallel after Stage 10, if each has a cl
 
 | Task | Status |
 |---|---|
-| Evaluation | Done for the scanners: [evaluation.md](evaluation.md), with a reproducible runner (`python -m evaluation.run_evaluation`) on 19 known problems and clean look-alikes. Results: 11/11 rule-covered problems caught, 0 false positives (was 10/11 and 1 on `main`). **The AI isn't evaluated yet**; it needs 7 approved Anthropic calls, and the runner records and replays them |
-| Fixes from the evaluation | Semgrep now finds SQL built into a variable; Bandit's empty-secret false positive removed; readable Bandit "blacklist" titles |
+| Evaluation | Done for the scanners: [evaluation.md](evaluation.md), with a reproducible runner (`python -m evaluation.run_evaluation`) on 19 known problems and clean look-alikes. Results: 11/11 rule-covered problems caught, 0 false positives (was 10/11 and 1 on `main`). **The AI was evaluated once** (7 calls): 15/19 caught with the AI, 4/8 of the AI-only problems. It showed manual-review line numbers were off, which is now fixed; **re-measuring needs 7 more approved calls** |
+| Fixes from the evaluation | Semgrep now finds SQL built into a variable; Bandit's empty-secret false positive removed; readable Bandit "blacklist" titles; manual reviews sent to the AI with line numbers |
 | Demo repository | [`demo/`](../demo/README.md): the published demo repository and PR #1, plus a new PR #2 (scanners and AI agree). Rebuilt identically by `demo/build_demo_repo.py`. PR #2 isn't published yet |
 | Scripted demo | [demo-script.md](demo-script.md): rehearsed start to finish with real scanners and fake sign-in, GitHub and AI, at desktop and phone widths. **A live rehearsal with the real AI is still needed** |
 | Integration and regression testing | Full suites on Windows + PostgreSQL and on Linux with the real scanners; browser rehearsal of the whole demo |
@@ -347,7 +347,7 @@ Don't cut Stage 10, Stage 11, the evaluation, or the demo.
 | Learning outcomes | Done (outcomes by category) | Stage 12 |
 | Semgrep and Bandit | Done for Python (PR #16) | Stage 13 |
 | Evidence-based confidence | Done: agreement between sources raises it (PR #16) | Stage 13 |
-| Quality evaluation | Scanners done; AI evaluation awaiting approved calls | Stage 14 |
+| Quality evaluation | Scanners done; AI run once; re-run after the line-number fix pending | Stage 14 |
 | Demo repository | Done (PR #2 not yet published) | Stage 14 |
 | Deployment | Configured and checked locally; not deployed | Stage 14, if feasible |
 
