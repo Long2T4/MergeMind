@@ -1,3 +1,5 @@
 # Keep LF line endings for files that run on Linux (Docker, shell).
 Dockerfile text eol=lf
 *.sh text eol=lf
+# Demo repository files: same bytes as the published GitHub repository.
+demo/mergemind-demo/** text eol=lf
