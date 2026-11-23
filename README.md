@@ -302,7 +302,7 @@ MergeMind was measured on fictional code with 19 known problems, plus clean look
 - **False positives:** none on the clean files;
 - **Duplicate findings:** none.
 
-The 8 logic and data-flow problems need the AI. The AI hasn't been measured yet, because that needs approved Anthropic calls. Run it with `python -m evaluation.run_evaluation` from `backend/`.
+The 8 logic and data-flow problems need the AI. In one real run (7 Anthropic calls), the AI raised the total to 15/19, catching 4 of those 8. It also showed the AI's line numbers in manual reviews were often 1-4 lines off; that's fixed (code is now sent numbered), and a re-measurement is pending. Run it with `python -m evaluation.run_evaluation` from `backend/`.
 
 ## Demo
 
@@ -350,7 +350,7 @@ Stages 1–13, a frontend redesign and beginner explanations are complete and me
 | 11 | GitHub Pull Request Integration | Complete: verified live on a demo PR; merged (PR #13) |
 | 12 | Developer Feedback and Learning | Complete: merged (PR #15). Accounts, per-user data, projects, finding outcomes and Learning outcomes. Not verified against live Supabase yet |
 | 13 | Static Analysis Integration | Complete: merged (PR #16). Semgrep (local rules) and Bandit, merged findings, evidence-based confidence and scanner status |
-| 14 | Evaluation and Final Demo | Done on its branch, not merged: evaluation, demo material and script, deployment configuration. Not deployed; the AI isn't evaluated yet |
+| 14 | Evaluation and Final Demo | Done on its branch, not merged: evaluation, demo material and script, deployment configuration. Not deployed; the AI evaluated once, re-run after the line-number fix pending |
 
 Migrations `0005`–`0007` aren't applied to Supabase yet. See the full [project plan](docs/PROJECT_PLAN.md).
 

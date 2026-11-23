@@ -1,0 +1,579 @@
+{
+  "environment": {
+    "date": "2026-11-23",
+    "python": "3.12.16",
+    "platform": "Linux",
+    "semgrep": "1.184.0",
+    "bandit": "bandit 1.9.4",
+    "ai": "live Anthropic calls"
+  },
+  "scanner_status": {
+    "accounts.py": {
+      "semgrep": "completed",
+      "bandit": "completed"
+    },
+    "clean_accounts.py": {
+      "semgrep": "completed",
+      "bandit": "completed"
+    },
+    "clean_orders.py": {
+      "semgrep": "completed",
+      "bandit": "completed"
+    },
+    "clean_tools.py": {
+      "semgrep": "completed",
+      "bandit": "completed"
+    },
+    "orders.py": {
+      "semgrep": "completed",
+      "bandit": "completed"
+    },
+    "tools.py": {
+      "semgrep": "completed",
+      "bandit": "completed"
+    },
+    "web_client.py": {
+      "semgrep": "completed",
+      "bandit": "completed"
+    }
+  },
+  "summary": {
+    "expected": 19,
+    "combined": {
+      "caught": 15,
+      "total": 19
+    },
+    "by_source": {
+      "ai": {
+        "caught": 7,
+        "total": 19
+      },
+      "semgrep": {
+        "caught": 11,
+        "total": 19
+      },
+      "bandit": {
+        "caught": 12,
+        "total": 19
+      }
+    },
+    "rule_covered": {
+      "combined": {
+        "caught": 11,
+        "total": 11
+      },
+      "ai": {
+        "caught": 3,
+        "total": 11
+      },
+      "semgrep": {
+        "caught": 11,
+        "total": 11
+      },
+      "bandit": {
+        "caught": 10,
+        "total": 11
+      }
+    },
+    "other_problems": {
+      "combined": {
+        "caught": 4,
+        "total": 8
+      },
+      "ai": {
+        "caught": 4,
+        "total": 8
+      },
+      "semgrep": {
+        "caught": 0,
+        "total": 8
+      },
+      "bandit": {
+        "caught": 2,
+        "total": 8
+      }
+    },
+    "duplicate_cards": 3,
+    "false_positives": {
+      "ai": 10,
+      "semgrep": 0,
+      "bandit": 0
+    },
+    "false_positive_findings": 10,
+    "unlabeled_findings": 12
+  },
+  "expected": [
+    {
+      "id": "E01",
+      "file": "accounts.py",
+      "contains": "ADMIN_PASSWORD = \"Winter2024!\"",
+      "kind": "hardcoded-secret",
+      "category": "security",
+      "problem": "Hard-coded admin password",
+      "line": 5,
+      "caught": true,
+      "sources": [
+        "ai",
+        "bandit",
+        "semgrep"
+      ],
+      "cards": 1,
+      "confidence": "high"
+    },
+    {
+      "id": "E02",
+      "file": "accounts.py",
+      "contains": "SESSION_SECRET = \"s3cr3t",
+      "kind": "hardcoded-secret",
+      "category": "security",
+      "problem": "Hard-coded signing secret",
+      "line": 6,
+      "caught": true,
+      "sources": [
+        "bandit",
+        "semgrep"
+      ],
+      "cards": 1,
+      "confidence": "medium"
+    },
+    {
+      "id": "E03",
+      "file": "accounts.py",
+      "contains": "hashlib.md5(password",
+      "kind": "weak-hash",
+      "category": "security",
+      "problem": "MD5 used to hash passwords",
+      "line": 10,
+      "caught": true,
+      "sources": [
+        "bandit",
+        "semgrep"
+      ],
+      "cards": 1,
+      "confidence": "medium"
+    },
+    {
+      "id": "E04",
+      "file": "accounts.py",
+      "contains": "random.choice(",
+      "kind": null,
+      "category": "security",
+      "problem": "Reset token from a non-cryptographic random generator",
+      "line": 14,
+      "caught": true,
+      "sources": [
+        "ai",
+        "bandit"
+      ],
+      "cards": 2,
+      "confidence": "low"
+    },
+    {
+      "id": "E05",
+      "file": "accounts.py",
+      "contains": "WHERE email = '%s'\" % email",
+      "kind": "sql-injection",
+      "category": "security",
+      "problem": "SQL built with % formatting, run later",
+      "line": 19,
+      "caught": true,
+      "sources": [
+        "ai",
+        "semgrep"
+      ],
+      "cards": 1,
+      "confidence": "medium"
+    },
+    {
+      "id": "E06",
+      "file": "accounts.py",
+      "contains": "cursor.execute(f\"DELETE",
+      "kind": "sql-injection",
+      "category": "security",
+      "problem": "SQL built with an f-string",
+      "line": 24,
+      "caught": true,
+      "sources": [
+        "bandit",
+        "semgrep"
+      ],
+      "cards": 1,
+      "confidence": "medium"
+    },
+    {
+      "id": "E07",
+      "file": "tools.py",
+      "contains": "shell=True",
+      "kind": "shell-injection",
+      "category": "security",
+      "problem": "Shell command built from input",
+      "line": 9,
+      "caught": true,
+      "sources": [
+        "ai",
+        "bandit",
+        "semgrep"
+      ],
+      "cards": 1,
+      "confidence": "high"
+    },
+    {
+      "id": "E08",
+      "file": "tools.py",
+      "contains": "os.popen(",
+      "kind": "shell-injection",
+      "category": "security",
+      "problem": "os.popen with input",
+      "line": 13,
+      "caught": true,
+      "sources": [
+        "bandit",
+        "semgrep"
+      ],
+      "cards": 1,
+      "confidence": "medium"
+    },
+    {
+      "id": "E09",
+      "file": "tools.py",
+      "contains": "return eval(expression)",
+      "kind": "code-eval",
+      "category": "security",
+      "problem": "eval() on input",
+      "line": 17,
+      "caught": true,
+      "sources": [
+        "bandit",
+        "semgrep"
+      ],
+      "cards": 1,
+      "confidence": "medium"
+    },
+    {
+      "id": "E10",
+      "file": "tools.py",
+      "contains": "pickle.loads(blob)",
+      "kind": "deserialization",
+      "category": "security",
+      "problem": "pickle.loads on untrusted data",
+      "line": 21,
+      "caught": true,
+      "sources": [
+        "bandit",
+        "semgrep"
+      ],
+      "cards": 1,
+      "confidence": "medium"
+    },
+    {
+      "id": "E11",
+      "file": "tools.py",
+      "contains": "yaml.load(handle)",
+      "kind": "deserialization",
+      "category": "security",
+      "problem": "yaml.load without a safe loader",
+      "line": 26,
+      "caught": true,
+      "sources": [
+        "bandit",
+        "semgrep"
+      ],
+      "cards": 1,
+      "confidence": "medium"
+    },
+    {
+      "id": "E12",
+      "file": "web_client.py",
+      "contains": "verify=False",
+      "kind": "tls-disabled",
+      "category": "security",
+      "problem": "Certificate checks turned off",
+      "line": 9,
+      "caught": true,
+      "sources": [
+        "bandit",
+        "semgrep"
+      ],
+      "cards": 1,
+      "confidence": "medium"
+    },
+    {
+      "id": "E13",
+      "file": "web_client.py",
+      "contains": "requests.get(user_url",
+      "kind": null,
+      "category": "security",
+      "problem": "Server-side request to a user-supplied URL (SSRF)",
+      "line": 13,
+      "caught": true,
+      "sources": [
+        "ai"
+      ],
+      "cards": 2,
+      "confidence": "low"
+    },
+    {
+      "id": "E14",
+      "file": "web_client.py",
+      "contains": "os.path.join(UPLOAD_DIR, filename)",
+      "kind": null,
+      "category": "security",
+      "problem": "Path traversal through the file name",
+      "line": 17,
+      "caught": false,
+      "sources": [],
+      "cards": 0,
+      "confidence": null
+    },
+    {
+      "id": "E15",
+      "file": "orders.py",
+      "contains": "range(len(items) - 1)",
+      "kind": null,
+      "category": "logic",
+      "problem": "Off-by-one: the last item is skipped",
+      "line": 3,
+      "caught": true,
+      "sources": [
+        "ai"
+      ],
+      "cards": 1,
+      "confidence": "low"
+    },
+    {
+      "id": "E16",
+      "file": "orders.py",
+      "contains": "sum(ratings) / len(ratings)",
+      "kind": null,
+      "category": "error_handling",
+      "problem": "Division by zero for an empty list",
+      "line": 9,
+      "caught": false,
+      "sources": [],
+      "cards": 0,
+      "confidence": null
+    },
+    {
+      "id": "E17",
+      "file": "orders.py",
+      "contains": "tags=[]",
+      "kind": null,
+      "category": "logic",
+      "problem": "Mutable default argument shared between calls",
+      "line": 12,
+      "caught": false,
+      "sources": [],
+      "cards": 0,
+      "confidence": null
+    },
+    {
+      "id": "E18",
+      "file": "orders.py",
+      "contains": "except Exception:",
+      "kind": null,
+      "category": "error_handling",
+      "problem": "Errors swallowed; returns None silently",
+      "line": 20,
+      "caught": true,
+      "sources": [
+        "ai",
+        "bandit"
+      ],
+      "cards": 2,
+      "confidence": "low"
+    },
+    {
+      "id": "E19",
+      "file": "orders.py",
+      "contains": "order[\"quantity\"] = int(quantity)",
+      "kind": null,
+      "category": "input_validation",
+      "problem": "Quantity not checked (negative or zero)",
+      "line": 25,
+      "caught": false,
+      "sources": [],
+      "cards": 0,
+      "confidence": null
+    }
+  ],
+  "false_positives": [
+    {
+      "file": "clean_accounts.py",
+      "line": 17,
+      "title": "Database connection not closed",
+      "sources": [
+        "ai"
+      ]
+    },
+    {
+      "file": "clean_accounts.py",
+      "line": 10,
+      "title": "hash_file function accepts any data type without validation",
+      "sources": [
+        "ai"
+      ]
+    },
+    {
+      "file": "clean_accounts.py",
+      "line": 5,
+      "title": "Unused constant and unclear naming",
+      "sources": [
+        "ai"
+      ]
+    },
+    {
+      "file": "clean_orders.py",
+      "line": 1,
+      "title": "Missing input validation in total_price",
+      "sources": [
+        "ai"
+      ]
+    },
+    {
+      "file": "clean_orders.py",
+      "line": 7,
+      "title": "Mutable default argument in add_tag",
+      "sources": [
+        "ai"
+      ]
+    },
+    {
+      "file": "clean_orders.py",
+      "line": 5,
+      "title": "Missing input validation in average_rating",
+      "sources": [
+        "ai"
+      ]
+    },
+    {
+      "file": "clean_tools.py",
+      "line": 7,
+      "title": "Unsafe subprocess command construction with user input",
+      "sources": [
+        "ai"
+      ]
+    },
+    {
+      "file": "clean_tools.py",
+      "line": 11,
+      "title": "Unsafe evaluation of arbitrary expressions",
+      "sources": [
+        "ai"
+      ]
+    },
+    {
+      "file": "clean_tools.py",
+      "line": 15,
+      "title": "File opened without explicit encoding",
+      "sources": [
+        "ai"
+      ]
+    },
+    {
+      "file": "clean_tools.py",
+      "line": 11,
+      "title": "Missing input validation and error handling",
+      "sources": [
+        "ai"
+      ]
+    }
+  ],
+  "unlabeled": [
+    {
+      "file": "accounts.py",
+      "line": 15,
+      "title": "SQL Injection vulnerability in find_account",
+      "sources": [
+        "ai"
+      ]
+    },
+    {
+      "file": "accounts.py",
+      "line": 8,
+      "title": "Weak password hashing using MD5",
+      "sources": [
+        "ai"
+      ]
+    },
+    {
+      "file": "accounts.py",
+      "line": 11,
+      "title": "Weak random token generation",
+      "sources": [
+        "ai"
+      ]
+    },
+    {
+      "file": "orders.py",
+      "line": 7,
+      "title": "Mutable default argument",
+      "sources": [
+        "ai"
+      ]
+    },
+    {
+      "file": "orders.py",
+      "line": 6,
+      "title": "Division by zero risk",
+      "sources": [
+        "ai"
+      ]
+    },
+    {
+      "file": "orders.py",
+      "line": 15,
+      "title": "Silent failure in parse_quantity",
+      "sources": [
+        "ai"
+      ]
+    },
+    {
+      "file": "tools.py",
+      "line": 7,
+      "title": "Command Injection via Unsanitized User Input in archive_logs",
+      "sources": [
+        "ai"
+      ]
+    },
+    {
+      "file": "tools.py",
+      "line": 13,
+      "title": "Arbitrary Code Execution via eval() on Untrusted Input",
+      "sources": [
+        "ai"
+      ]
+    },
+    {
+      "file": "tools.py",
+      "line": 16,
+      "title": "Unsafe Deserialization of Untrusted Data",
+      "sources": [
+        "ai"
+      ]
+    },
+    {
+      "file": "tools.py",
+      "line": 19,
+      "title": "Unsafe YAML Deserialization without Loader Specification",
+      "sources": [
+        "ai"
+      ]
+    },
+    {
+      "file": "web_client.py",
+      "line": 7,
+      "title": "Disabled SSL Certificate Verification",
+      "sources": [
+        "ai"
+      ]
+    },
+    {
+      "file": "web_client.py",
+      "line": 7,
+      "title": "Missing Error Handling for Network Requests",
+      "sources": [
+        "ai"
+      ]
+    }
+  ]
+}

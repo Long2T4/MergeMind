@@ -115,11 +115,58 @@ def number_lines(code: str) -> str:
     return "\n".join(f"{number:>{width}} | {line}" for number, line in enumerate(lines, start=1))
 
 
-def _instructions(changed_lines) -> str:
+# Stage 14: manual reviews are sent numbered too. The evaluation showed that
+# without numbers the model's line references were often 1-4 lines off (the
+# same problem Stage 11 fixed for pull requests), so its findings didn't line
+# up with the scanners' and were shown twice.
+NUMBERED_CODE_PROMPT_ADDENDUM = """
+Each line of submitted_code starts with its line number and " | ". That
+prefix is not part of the code.
+- line_reference must be the number at the start of the line you mean. Never
+  count lines yourself.
+- Do not copy the line-number prefixes into explanations or suggested fixes.
+"""
+
+
+def _instructions(changed_lines, numbered: bool = True) -> str:
     instructions = REVIEW_PROMPT_TEMPLATE.format(
         categories=sorted(VALID_CATEGORIES), severities=sorted(VALID_SEVERITIES),
     )
-    return instructions + PULL_REQUEST_PROMPT_ADDENDUM if changed_lines is not None else instructions
+    if changed_lines is not None:
+        return instructions + PULL_REQUEST_PROMPT_ADDENDUM  # always numbered
+    return instructions + NUMBERED_CODE_PROMPT_ADDENDUM if numbered else instructions
+
+
+def _review_prompt(
+    source_code: str, language: str, *,
+    project_context: ProjectContext | None = None, file_path: str | None = None,
+    changed_lines: list[int] | None = None,
+) -> tuple[str, str]:
+    """(system instructions, payload): code serialized as data, bounded in size.
+
+    Code is sent with line numbers so the model reads them instead of
+    counting. A manual submission whose numbered form would exceed the prompt
+    limit is sent as plain code, as before, so the accepted size doesn't
+    shrink; the instructions always match what is sent.
+    """
+    attempts = (True,) if changed_lines is not None else (True, False)
+    for numbered in attempts:
+        data = {
+            "language": language,
+            "file_path": file_path,
+            "submitted_code": number_lines(source_code) if numbered else source_code,
+            "related_files": [
+                {"path": file.path, "content": file.content}
+                for file in (project_context.files if project_context else ())
+            ],
+        }
+        if changed_lines is not None:
+            data["changed_lines"] = sorted(changed_lines)
+        payload = json.dumps(data, ensure_ascii=False)
+        system = _instructions(changed_lines, numbered)
+        if len(payload) + len(system) <= MAX_PROMPT_CHARS:
+            return system, payload
+    raise ValueError("Review input exceeds the 250000 character prompt limit; submit less code")
 
 
 def build_review_payload(
@@ -128,22 +175,10 @@ def build_review_payload(
     changed_lines: list[int] | None = None,
 ) -> str:
     """Serialize code as data, and bound the complete serialized provider input."""
-    data = {
-        "language": language,
-        "file_path": file_path,
-        # Pull request files are sent numbered; manual reviews are unchanged.
-        "submitted_code": number_lines(source_code) if changed_lines is not None else source_code,
-        "related_files": [
-            {"path": file.path, "content": file.content}
-            for file in (project_context.files if project_context else ())
-        ],
-    }
-    if changed_lines is not None:
-        data["changed_lines"] = sorted(changed_lines)
-    payload = json.dumps(data, ensure_ascii=False)
-    if len(payload) + len(_instructions(changed_lines)) > MAX_PROMPT_CHARS:
-        raise ValueError("Review input exceeds the 250000 character prompt limit; submit less code")
-    return payload
+    return _review_prompt(
+        source_code, language, project_context=project_context, file_path=file_path,
+        changed_lines=changed_lines,
+    )[1]
 
 
 def review_code(
@@ -178,13 +213,11 @@ def _review_with_claude(
     project_context: ProjectContext | None = None, file_path: str | None = None,
     changed_lines: list[int] | None = None,
 ) -> list[dict]:
-    response_text = request_claude_text(
-        system=_instructions(changed_lines),
-        payload=build_review_payload(
-            source_code, language, project_context=project_context, file_path=file_path,
-            changed_lines=changed_lines,
-        ),
+    system, payload = _review_prompt(
+        source_code, language, project_context=project_context, file_path=file_path,
+        changed_lines=changed_lines,
     )
+    response_text = request_claude_text(system=system, payload=payload)
     return _parse_issues_object(response_text)
 
 
