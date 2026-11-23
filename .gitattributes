@@ -1,0 +1,3 @@
+# Keep LF line endings for files that run on Linux (Docker, shell).
+Dockerfile text eol=lf
+*.sh text eol=lf
